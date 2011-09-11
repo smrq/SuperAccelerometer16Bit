@@ -17,10 +17,9 @@ class RingBuffer
 
 template <class T>
 RingBuffer<T>::RingBuffer(int size)
+	: size(size), cursor(0)
 {
-	this->buffer = new T[size];
-	this->size = size;
-	this->cursor = 0;
+	buffer = new T[size];
 }
 
 template <class T>
