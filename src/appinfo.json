@@ -1,0 +1,12 @@
+{
+	"title": "Super Thruster Turbo 16 Bit!",
+	"type": "pdk",
+	"main": "superthrusterturbo",
+	"splashicon": "icon-256.png",
+	"icon": "icon-64.png",
+	"id": "net.spr33.superthrusterturbo",
+	"version": "0.1.0",
+	"vendor": "spr33",
+	"requiredMemory": 15,
+	"uirevision": 2
+}
