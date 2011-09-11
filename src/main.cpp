@@ -60,16 +60,26 @@ bool InitializeGlobals()
 // Standard GL perspective matrix creation
 void MakePerspectiveMatrix(float ProjectionMatrix[4][4], const float FOV, const float ZNear, const float ZFar)
 {
-    const float Delta = ZFar - ZNear;
-
     memset(ProjectionMatrix, 0, sizeof(ProjectionMatrix));
 
     ProjectionMatrix[0][0] = 1.0f / tanf(FOV * 3.1415926535f / 360.0f);
     ProjectionMatrix[1][1] = ProjectionMatrix[0][0] / ((float)Surface->h / Surface->w);
-
-    ProjectionMatrix[2][2] = -(ZFar + ZNear) / Delta;
+    ProjectionMatrix[2][2] = -(ZFar + ZNear) / (ZFar - ZNear);
     ProjectionMatrix[2][3] = -1.0f;
-    ProjectionMatrix[3][2] = -2.0f * ZFar * ZNear / Delta;
+    ProjectionMatrix[3][2] = -2.0f * ZFar * ZNear / (ZFar - ZNear);
+}
+
+void MakeOrthographicMatrix(float ProjectionMatrix[4][4], const float left, const float right, const float top, const float bottom, const float near, const float far)
+{
+    memset(ProjectionMatrix, 0, sizeof(ProjectionMatrix));
+
+	ProjectionMatrix[0][0] = 2.0f / (right - left);
+	ProjectionMatrix[1][1] = 2.0f / (top - bottom);
+	ProjectionMatrix[2][2] = -2.0f / (far - near);
+	ProjectionMatrix[3][0] = -(right + left)/(right - left);
+	ProjectionMatrix[3][1] = -(top + bottom)/(top - bottom);
+	ProjectionMatrix[3][2] = -(far + near)/(far - near);
+	ProjectionMatrix[3][3] = 1.0f;
 }
 
 // Simple function to create a shader
@@ -197,6 +207,7 @@ bool InitializeGL()
 
     // Setup the Projection matrix
     MakePerspectiveMatrix(ProjectionMatrix, 70.0f, 0.1f, 200.0f);
+	//MakeOrthographicMatrix(ProjectionMatrix, 0.0f, (float)Surface->w, 0.0f, (float)Surface->h, 0.1f, 200.0f);
 
     // Basic GL setup
     glClearColor    (0.0, 0.0, 0.0, 1.0);
@@ -274,9 +285,6 @@ void Render()
     ModelviewMatrix[2][2] = cos(g_Model.angle);
     ModelviewMatrix[3][2] = -1.0f;   
     ModelviewMatrix[3][3] = 1.0f;
-
-    // Constantly rotate the object as a function of time
-    g_Model.angle = SDL_GetTicks() * 0.001f;
 
     // Vertex information
     float PtData[][3] = {
@@ -366,6 +374,9 @@ void Update(int t, int dt)
               0.001f * t, 0.001f * dt,
               &g_Model.position, &g_Model.velocity);
 	printf("X: %.5f, V: %.5f, A: %.5f\n", g_Model.position, g_Model.velocity, g_Model.acceleration);
+
+    // Constantly rotate the object as a function of time
+    g_Model.angle += g_Model.velocity * dt * 0.01f;
 
 }
 
