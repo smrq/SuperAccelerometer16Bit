@@ -58,28 +58,37 @@ bool InitializeGlobals()
 }
 
 // Standard GL perspective matrix creation
-void MakePerspectiveMatrix(float ProjectionMatrix[4][4], const float FOV, const float ZNear, const float ZFar)
+void MakePerspectiveMatrix(float matrix[4][4], const float fov, const float near, const float far)
 {
-    memset(ProjectionMatrix, 0, sizeof(ProjectionMatrix));
+    memset(matrix, 0, sizeof(matrix));
 
-    ProjectionMatrix[0][0] = 1.0f / tanf(FOV * 3.1415926535f / 360.0f);
-    ProjectionMatrix[1][1] = ProjectionMatrix[0][0] / ((float)Surface->h / Surface->w);
-    ProjectionMatrix[2][2] = -(ZFar + ZNear) / (ZFar - ZNear);
-    ProjectionMatrix[2][3] = -1.0f;
-    ProjectionMatrix[3][2] = -2.0f * ZFar * ZNear / (ZFar - ZNear);
+    matrix[0][0] = 1.0f / tanf(fov * 3.1415926535f / 360.0f);
+    matrix[1][1] = matrix[0][0] / ((float)Surface->h / Surface->w);
+    matrix[2][2] = -(far + near) / (far - near);
+    matrix[2][3] = -1.0f;
+    matrix[3][2] = -2.0f * far * near / (far - near);
 }
 
-void MakeOrthographicMatrix(float ProjectionMatrix[4][4], const float left, const float right, const float top, const float bottom, const float near, const float far)
+void MakeOrthographicMatrix(float matrix[4][4], const float left, const float right, const float top, const float bottom, const float near, const float far)
 {
-    memset(ProjectionMatrix, 0, sizeof(ProjectionMatrix));
+    memset(matrix, 0, sizeof(matrix));
 
-	ProjectionMatrix[0][0] = 2.0f / (right - left);
-	ProjectionMatrix[1][1] = 2.0f / (top - bottom);
-	ProjectionMatrix[2][2] = -2.0f / (far - near);
-	ProjectionMatrix[3][0] = -(right + left)/(right - left);
-	ProjectionMatrix[3][1] = -(top + bottom)/(top - bottom);
-	ProjectionMatrix[3][2] = -(far + near)/(far - near);
-	ProjectionMatrix[3][3] = 1.0f;
+	matrix[0][0] = 2.0f / (right - left);
+	matrix[1][1] = 2.0f / (top - bottom);
+	matrix[2][2] = -2.0f / (far - near);
+	matrix[3][0] = -(right + left)/(right - left);
+	matrix[3][1] = -(top + bottom)/(top - bottom);
+	matrix[3][2] = -(far + near)/(far - near);
+	matrix[3][3] = 1.0f;
+}
+
+void MakeIdentityMatrix(float matrix[4][4])
+{
+    memset(matrix, 0, sizeof(matrix));
+	matrix[0][0] = 1.0f;
+	matrix[1][1] = 1.0f;
+	matrix[2][2] = 1.0f;
+	matrix[3][3] = 1.0f;
 }
 
 // Simple function to create a shader
@@ -110,39 +119,23 @@ bool InitializeShader()
     // Very basic ambient+diffusion model
     const char VertexShader[] = "                   \
         attribute vec3 Position;                    \
-        attribute vec3 Normal;                      \
                                                     \
         uniform mat4 ProjectionMatrix;              \
         uniform mat4 ModelviewMatrix;               \
                                                     \
-        varying vec3 NormVec;                       \
-        varying vec3 LighVec;                       \
-                                                    \
         void main(void)                             \
         {                                           \
-            vec4 Pos = ModelviewMatrix * vec4(Position, 1.0); \
-            gl_Position = ProjectionMatrix * Pos;   \
-                                                    \
-            NormVec     = (ModelviewMatrix * vec4(Normal,0.0)).xyz; \
-            LighVec     = -Pos.xyz;                 \
+            gl_Position = ProjectionMatrix * ModelviewMatrix * vec4(Position, 1.0); \
         }                                           \
     ";
 
-    const char FragmentShader[] = "                                             \
-        uniform highp vec3 Color;                                               \
-                                                                                \
-        varying highp vec3 NormVec;                                             \
-        varying highp vec3 LighVec;                                             \
-                                                                                \
-        void main(void)                                                         \
-        {                                                                       \
-            mediump vec3 Norm  = normalize(NormVec);                            \
-            mediump vec3 Light = normalize(LighVec);                            \
-                                                                                \
-            mediump float Diffuse = dot(Norm, Light);                           \
-                                                                                \
-            gl_FragColor = vec4(Color * (max(Diffuse, 0.0) * 0.6 + 0.4), 0.5);  \
-        }                                                                       \
+    const char FragmentShader[] = "          \
+        uniform highp vec3 Color;            \
+                                             \
+        void main(void)                      \
+        {                                    \
+            gl_FragColor = vec4(Color, 0.5); \
+        }                                    \
     ";
 
     // Create 2 shader programs
@@ -159,7 +152,6 @@ bool InitializeShader()
     glAttachShader(Program, fragmentShader);
 
     glBindAttribLocation(Program, 0, "Position");
-    glBindAttribLocation(Program, 1, "Normal");
 
     // Link
     glLinkProgram(Program);
@@ -206,8 +198,8 @@ bool InitializeGL()
         return false;
 
     // Setup the Projection matrix
-    MakePerspectiveMatrix(ProjectionMatrix, 70.0f, 0.1f, 200.0f);
-	//MakeOrthographicMatrix(ProjectionMatrix, 0.0f, (float)Surface->w, 0.0f, (float)Surface->h, 0.1f, 200.0f);
+    //MakePerspectiveMatrix(ProjectionMatrix, 70.0f, 0.1f, 200.0f);
+	MakeOrthographicMatrix(ProjectionMatrix, -2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
 
     // Basic GL setup
     glClearColor    (0.0, 0.0, 0.0, 1.0);
@@ -266,12 +258,8 @@ bool Initialize()
 ///////////////////////////////////////////////////////////////////////////////
 // Rendering
 
-// Main-loop workhorse function for displaying the object
-void Render()
+void Render3DTest()
 {
-    // Clear the screen
-    glClear (GL_COLOR_BUFFER_BIT);
-
     float ModelviewMatrix[4][4];
 
     memset(ModelviewMatrix, 0, sizeof(ModelviewMatrix));
@@ -338,6 +326,46 @@ void Render()
 
     glDrawElements          (GL_TRIANGLES, sizeof(FaceData) / sizeof(unsigned short), 
                              GL_UNSIGNED_SHORT, &FaceData[0][0]);
+}
+
+void Render2DTest()
+{
+    float ModelviewMatrix[4][4];
+	MakeIdentityMatrix(ModelviewMatrix);
+
+    // Vertex information
+    float PtData[][3] = {
+        {-1.0f, -1.0f, 0.0f},
+        {-1.0f,  1.0f, 0.0f},
+        { 1.0f,  1.0f, 0.0f},
+        { 1.0f, -1.0f, 0.0f}
+    };
+
+    // Face information
+    unsigned short FaceData[][3] = {
+        {0,1,2},
+        {2,3,0}
+    };
+
+    // Draw the square
+    glUseProgram            (Program);
+    glUniformMatrix4fv      (iProjectionMatrix, 1, false, (const float *)&ProjectionMatrix[0][0]);
+    glUniformMatrix4fv      (iModelviewMatrix, 1, false, (const float *)&ModelviewMatrix[0][0]);
+    glUniform3f             (iColor, 0.8f, 0.3f, 0.5f);
+
+    glVertexAttribPointer   (0, 3, GL_FLOAT, 0, 0, &PtData[0][0]);
+    glVertexAttribPointer   (1, 3, GL_FLOAT, GL_TRUE, 0, &PtData[0][0]);
+
+    glDrawElements          (GL_TRIANGLES, sizeof(FaceData) / sizeof(unsigned short), 
+                             GL_UNSIGNED_SHORT, &FaceData[0][0]);
+}
+
+void Render()
+{
+    // Clear the screen
+    glClear (GL_COLOR_BUFFER_BIT);
+
+	Render2DTest();
 
     SDL_GL_SwapBuffers();
 }
