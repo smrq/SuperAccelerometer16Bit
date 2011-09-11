@@ -9,7 +9,6 @@
 #include "PDL.h"
 
 #include "Vector3f.h"
-#include "RingBuffer.h"
 
 SDL_Surface *Surface;               // Screen surface to retrieve width/height information
 
@@ -33,12 +32,7 @@ Model g_Model(0.0f, 0.0f, 0.0f);
 SDL_Joystick *g_Joystick;
 
 ///////////////////////////////////////////////////////////////////////////////
-// Initialization
-
-bool InitializeGlobals()
-{
-	return true;
-}
+// Projection/transformation matrix functions
 
 // Standard GL perspective matrix creation
 void MakePerspectiveMatrix(float matrix[4][4], const float fov, const float near, const float far)
@@ -73,6 +67,9 @@ void MakeIdentityMatrix(float matrix[4][4])
 	matrix[2][2] = 1.0f;
 	matrix[3][3] = 1.0f;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Initialization
 
 // Simple function to create a shader
 void LoadShader(char *Code, int ID)
@@ -192,13 +189,6 @@ bool InitializeGL()
     return true;
 }
 
-// Initialize the accelerometer
-bool InitializeAccelerometer()
-{
-    g_Joystick = SDL_JoystickOpen(0);
-    return true;
-}
-
 // Initialize the SDL system
 bool InitializeSDL()
 {
@@ -217,6 +207,8 @@ bool InitializeSDL()
     // use zero for width/height to use maximum resolution
     Surface = SDL_SetVideoMode(0, 0, 0, SDL_OPENGL);
 
+    g_Joystick = SDL_JoystickOpen(0);
+
     return true;
 }
 
@@ -227,12 +219,6 @@ bool Initialize()
         return false;
 
     if (!InitializeGL())
-        return false;
-
-    if (!InitializeAccelerometer())
-        return false;
-
-    if (!InitializeGlobals())
         return false;
 
     return true;
@@ -274,9 +260,7 @@ void Render()
 {
     // Clear the screen
     glClear (GL_COLOR_BUFFER_BIT);
-
 	Render2DTest();
-
     SDL_GL_SwapBuffers();
 }
 
@@ -339,7 +323,15 @@ void PollInput()
     a.x = (float) SDL_JoystickGetAxis(g_Joystick, 0) / 32768.0;
     a.y = (float) SDL_JoystickGetAxis(g_Joystick, 1) / 32768.0;
     a.z = (float) SDL_JoystickGetAxis(g_Joystick, 2) / 32768.0;
-	g_Model.acceleration = GetTrueYAcceleration(a);
+	float trueAcceleration = GetTrueYAcceleration(a);
+
+	if (fabs(trueAcceleration) > 0.05f) {
+		g_Model.acceleration = trueAcceleration;
+	}
+	else
+	{
+		g_Model.acceleration = 0.0f;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
