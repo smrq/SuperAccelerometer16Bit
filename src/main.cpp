@@ -1,15 +1,15 @@
 /**
     Palm disclaimer
 **/
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 
 #include <GLES2/gl2.h>
 #include "SDL.h"
 #include "PDL.h"
 
-#include "RingBuffer.h"
 #include "Vector3f.h"
+#include "RingBuffer.h"
 
 SDL_Surface *Surface;               // Screen surface to retrieve width/height information
 
@@ -22,20 +22,13 @@ int         iProjectionMatrix,      // Our uniforms
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
 
-typedef struct {
-	RingBuffer<Vector3f> *data;
-	int dataCount;
-	Vector3f calibratedG;
-} AccelerometerData;
-AccelerometerData g_AccelerometerData;
-
-typedef struct {
+typedef struct Model {
 	float position;
 	float velocity;
 	float acceleration;
-	float angle; // Angle for test shape
+	Model(float p, float v, float a):position(p),velocity(v),acceleration(a) {}
 } Model;
-Model g_Model;
+Model g_Model(0.0f, 0.0f, 0.0f);
 
 SDL_Joystick *g_Joystick;
 
@@ -44,16 +37,6 @@ SDL_Joystick *g_Joystick;
 
 bool InitializeGlobals()
 {
-	g_Model.position = 0.0f;
-	g_Model.velocity = 0.0f;
-	g_Model.acceleration = 0.0f;
-	g_Model.angle = 0.0f;
-
-	g_AccelerometerData.dataCount = 16;
-	g_AccelerometerData.data = new RingBuffer<Vector3f>(g_AccelerometerData.dataCount);
-	g_AccelerometerData.calibratedG.x = 0.0f;
-	g_AccelerometerData.calibratedG.y = 0.0f;
-	g_AccelerometerData.calibratedG.z = 0.0f;
 	return true;
 }
 
@@ -255,79 +238,6 @@ bool Initialize()
     return true;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// Rendering
-
-void Render3DTest()
-{
-    float ModelviewMatrix[4][4];
-
-    memset(ModelviewMatrix, 0, sizeof(ModelviewMatrix));
-
-    // Setup the modelview matrix so that the object rotates around the Y axis
-    // We'll also translate it appropriately to Display
-    ModelviewMatrix[0][0] = cosf(g_Model.angle);
-    ModelviewMatrix[1][1] = 1.0f;
-    ModelviewMatrix[2][0] = sinf(g_Model.angle);
-    ModelviewMatrix[0][2] = -sinf(g_Model.angle);
-    ModelviewMatrix[2][2] = cos(g_Model.angle);
-    ModelviewMatrix[3][2] = -1.0f;   
-    ModelviewMatrix[3][3] = 1.0f;
-
-    // Vertex information
-    float PtData[][3] = {
-        {0.5f, 0.0380823f, 0.028521f},
-        {0.182754f, 0.285237f, 0.370816f},
-        {0.222318f, -0.2413f, 0.38028f},
-        {0.263663f, -0.410832f, -0.118163f},
-        {0.249651f, 0.0109279f, -0.435681f},
-        {0.199647f, 0.441122f, -0.133476f},
-        {-0.249651f, -0.0109279f, 0.435681f},
-        {-0.263663f, 0.410832f, 0.118163f},
-        {-0.199647f, -0.441122f, 0.133476f},
-        {-0.182754f, -0.285237f, -0.370816f},
-        {-0.222318f, 0.2413f, -0.38028f},
-        {-0.5f, -0.0380823f, -0.028521f},
-    };
-
-    // Face information
-    unsigned short FaceData[][3] = {
-        {0,1,2,},
-        {0,2,3,},
-        {0,3,4,},
-        {0,4,5,},
-        {0,5,1,},
-        {1,5,7,},
-        {1,7,6,},
-        {1,6,2,},
-        {2,6,8,},
-        {2,8,3,},
-        {3,8,9,},
-        {3,9,4,},
-        {4,9,10,},
-        {4,10,5,},
-        {5,10,7,},
-        {6,7,11,},
-        {6,11,8,},
-        {7,10,11,},
-        {8,11,9,},
-        {9,11,10,},
-    };
-
-
-    // Draw the icosahedron
-    glUseProgram            (Program);
-    glUniformMatrix4fv      (iProjectionMatrix, 1, false, (const float *)&ProjectionMatrix[0][0]);
-    glUniformMatrix4fv      (iModelviewMatrix, 1, false, (const float *)&ModelviewMatrix[0][0]);
-    glUniform3f             (iColor, 0.8f, 0.3f, 0.5f);
-
-    glVertexAttribPointer   (0, 3, GL_FLOAT, 0, 0, &PtData[0][0]);
-    glVertexAttribPointer   (1, 3, GL_FLOAT, GL_TRUE, 0, &PtData[0][0]);
-
-    glDrawElements          (GL_TRIANGLES, sizeof(FaceData) / sizeof(unsigned short), 
-                             GL_UNSIGNED_SHORT, &FaceData[0][0]);
-}
-
 void Render2DTest()
 {
     float ModelviewMatrix[4][4];
@@ -402,28 +312,25 @@ void Update(int t, int dt)
               0.001f * t, 0.001f * dt,
               &g_Model.position, &g_Model.velocity);
 	printf("X: %.5f, V: %.5f, A: %.5f\n", g_Model.position, g_Model.velocity, g_Model.acceleration);
-
-    // Constantly rotate the object as a function of time
-    g_Model.angle += g_Model.velocity * dt * 0.01f;
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Input polling
 
-Vector3f GetTrueAcceleration(Vector3f acceleration)
+float GetTrueYAcceleration(Vector3f acceleration)
 {
-	// Update average G vector
+	const float g = 1.0f;
 	float mag = acceleration.magnitude();
-	if (0.95f < mag && mag < 1.05f) {
-		Vector3f old = g_AccelerometerData.data->push(acceleration);
-		g_AccelerometerData.calibratedG += ((acceleration - old) / g_AccelerometerData.dataCount);
-//		printf("New calibrated G: %.5f, %.5f, %.5f\n", g_AccelerometerData.calibratedG.x, g_AccelerometerData.calibratedG.y, g_AccelerometerData.calibratedG.z);
-		return Vector3f();
-	}
+	// gy^2 should never be negative obviously, but it might be barely
+	// negative due to floating point error for very low true acceleration
+	float gy = sqrt( fabs(acceleration.y * acceleration.y + g * g - mag * mag) );
+    float a1 = acceleration.y + gy;
+	float a2 = acceleration.y - gy;
 
-	// Subtract G from acceleration
-	return acceleration - g_AccelerometerData.calibratedG;
+	// Return a1 or a2, whichever is closer to 0
+	return (fabs(a1) < fabs(a2))
+        ? a1
+        : a2;
 }
 
 void PollInput()
@@ -432,13 +339,7 @@ void PollInput()
     a.x = (float) SDL_JoystickGetAxis(g_Joystick, 0) / 32768.0;
     a.y = (float) SDL_JoystickGetAxis(g_Joystick, 1) / 32768.0;
     a.z = (float) SDL_JoystickGetAxis(g_Joystick, 2) / 32768.0;
-	
-	Vector3f trueAcceleration = GetTrueAcceleration(a);
-//	printf("Acceleration input: %.5f, %.5f, %.5f\n", a.x, a.y, a.z);
-//	printf("Calibrated G:       %.5f, %.5f, %.5f\n", g_AccelerometerData.calibratedG.x, g_AccelerometerData.calibratedG.y, 	g_AccelerometerData.calibratedG.z);
-//	printf("True acceleration:  %.5f, %.5f, %.5f\n", trueAcceleration.x, trueAcceleration.y, trueAcceleration.z);
-
-	g_Model.acceleration = trueAcceleration.y;
+	g_Model.acceleration = GetTrueYAcceleration(a);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
