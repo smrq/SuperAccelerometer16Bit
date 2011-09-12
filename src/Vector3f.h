@@ -1,5 +1,5 @@
 #ifndef __VECTOR3F_H__
-#define __VECTOR_H__
+#define __VECTOR3F_H__
 
 #include <stdio.h>
 #include <math.h>

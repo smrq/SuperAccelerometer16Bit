@@ -9,14 +9,9 @@
 #include "PDL.h"
 
 #include "Vector3f.h"
+#include "RingBuffer.h"
 
-SDL_Surface *Surface;               // Screen surface to retrieve width/height information
-
-int         Program;                // Totalling one program
-float       ProjectionMatrix[4][4]; // Projection matrix
-int         iProjectionMatrix,      // Our uniforms
-            iModelviewMatrix,
-            iColor;
+const int ATTRIB_POSITION = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -27,9 +22,19 @@ typedef struct Model {
 	float acceleration;
 	Model(float p, float v, float a):position(p),velocity(v),acceleration(a) {}
 } Model;
+
+
+SDL_Surface  *g_Surface;
+SDL_Joystick *g_Joystick;
+
+int   g_Program;
+float g_ProjectionMatrix[4][4];
+int   g_iProjectionMatrix,
+      g_iModelviewMatrix,
+      g_iColor;
+
 Model g_Model(0.0f, 0.0f, 0.0f);
 
-SDL_Joystick *g_Joystick;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Projection/transformation matrix functions
@@ -40,7 +45,7 @@ void MakePerspectiveMatrix(float matrix[4][4], const float fov, const float near
     memset(matrix, 0, sizeof(matrix));
 
     matrix[0][0] = 1.0f / tanf(fov * 3.1415926535f / 360.0f);
-    matrix[1][1] = matrix[0][0] / ((float)Surface->h / Surface->w);
+    matrix[1][1] = matrix[0][0] / ((float)g_Surface->h / g_Surface->w);
     matrix[2][2] = -(far + near) / (far - near);
     matrix[2][3] = -1.0f;
     matrix[3][2] = -2.0f * far * near / (far - near);
@@ -126,32 +131,32 @@ bool InitializeShader()
     LoadShader((char *)FragmentShader, fragmentShader);
 
     // Create the prorgam and attach the shaders & attributes
-    Program   = glCreateProgram();
+    g_Program = glCreateProgram();
 
-    glAttachShader(Program, vertexShader);
-    glAttachShader(Program, fragmentShader);
+    glAttachShader(g_Program, vertexShader);
+    glAttachShader(g_Program, fragmentShader);
 
-    glBindAttribLocation(Program, 0, "Position");
+    glBindAttribLocation(g_Program, ATTRIB_POSITION, "Position");
 
     // Link
-    glLinkProgram(Program);
+    glLinkProgram(g_Program);
 
     // Validate our work thus far
     int ShaderStatus;
-    glGetProgramiv(Program, GL_LINK_STATUS, &ShaderStatus); 
+    glGetProgramiv(g_Program, GL_LINK_STATUS, &ShaderStatus); 
 
     if (ShaderStatus != GL_TRUE) {
         printf("Error: Failed to link GLSL program\n");
         int Len = 1024;
         char Error[1024];
-        glGetProgramInfoLog(Program, 1024, &Len, Error);
+        glGetProgramInfoLog(g_Program, 1024, &Len, Error);
         printf("%s",Error);
         return false;
     }
 
-    glValidateProgram(Program);
+    glValidateProgram(g_Program);
 
-    glGetProgramiv(Program, GL_VALIDATE_STATUS, &ShaderStatus); 
+    glGetProgramiv(g_Program, GL_VALIDATE_STATUS, &ShaderStatus); 
 
     if (ShaderStatus != GL_TRUE) {
         printf("Error: Failed to validate GLSL program\n");
@@ -159,14 +164,13 @@ bool InitializeShader()
     }
 
     // Enable the program
-    glUseProgram                (Program);
-    glEnableVertexAttribArray   (0);
-    glEnableVertexAttribArray   (1);
+    glUseProgram(g_Program);
+    glEnableVertexAttribArray(ATTRIB_POSITION);
 
     // Retrieve our uniforms
-    iProjectionMatrix = glGetUniformLocation(Program, "ProjectionMatrix");
-    iModelviewMatrix  = glGetUniformLocation(Program, "ModelviewMatrix");
-    iColor            = glGetUniformLocation(Program, "Color");
+    g_iProjectionMatrix = glGetUniformLocation(g_Program, "ProjectionMatrix");
+    g_iModelviewMatrix  = glGetUniformLocation(g_Program, "ModelviewMatrix");
+    g_iColor            = glGetUniformLocation(g_Program, "Color");
 
     return true;
 }
@@ -178,8 +182,8 @@ bool InitializeGL()
         return false;
 
     // Setup the Projection matrix
-    //MakePerspectiveMatrix(ProjectionMatrix, 70.0f, 0.1f, 200.0f);
-	MakeOrthographicMatrix(ProjectionMatrix, -2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
+    //MakePerspectiveMatrix(g_ProjectionMatrix, 70.0f, 0.1f, 200.0f);
+	MakeOrthographicMatrix(g_ProjectionMatrix, -2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
 
     // Basic GL setup
     glClearColor    (0.0, 0.0, 0.0, 1.0);
@@ -205,7 +209,7 @@ bool InitializeSDL()
 
     // Set the video mode to full screen with OpenGL-ES support
     // use zero for width/height to use maximum resolution
-    Surface = SDL_SetVideoMode(0, 0, 0, SDL_OPENGL);
+    g_Surface = SDL_SetVideoMode(0, 0, 0, SDL_OPENGL);
 
     g_Joystick = SDL_JoystickOpen(0);
 
@@ -226,10 +230,12 @@ bool Initialize()
 
 void Render2DTest()
 {
-    float ModelviewMatrix[4][4];
-	MakeIdentityMatrix(ModelviewMatrix);
+    float modelviewMatrix[4][4];
+	MakeIdentityMatrix(modelviewMatrix);
 
     // Vertex information
+	std::vector<float>
+
     float PtData[][3] = {
         {-1.0f, -1.0f, 0.0f},
         {-1.0f,  1.0f, 0.0f},
@@ -244,13 +250,12 @@ void Render2DTest()
     };
 
     // Draw the square
-    glUseProgram            (Program);
-    glUniformMatrix4fv      (iProjectionMatrix, 1, false, (const float *)&ProjectionMatrix[0][0]);
-    glUniformMatrix4fv      (iModelviewMatrix, 1, false, (const float *)&ModelviewMatrix[0][0]);
-    glUniform3f             (iColor, 0.8f, 0.3f, 0.5f);
+    glUseProgram            (g_Program);
+    glUniformMatrix4fv      (g_iProjectionMatrix, 1, false, (const float *)&g_ProjectionMatrix[0][0]);
+    glUniformMatrix4fv      (g_iModelviewMatrix, 1, false, (const float *)&modelviewMatrix[0][0]);
+    glUniform3f             (g_iColor, 0.8f, 0.3f, 0.5f);
 
-    glVertexAttribPointer   (0, 3, GL_FLOAT, 0, 0, &PtData[0][0]);
-    glVertexAttribPointer   (1, 3, GL_FLOAT, GL_TRUE, 0, &PtData[0][0]);
+    glVertexAttribPointer   (ATTRIB_POSITION, 3, GL_FLOAT, GL_FALSE, 0, &PtData[0][0]);
 
     glDrawElements          (GL_TRIANGLES, sizeof(FaceData) / sizeof(unsigned short), 
                              GL_UNSIGNED_SHORT, &FaceData[0][0]);
