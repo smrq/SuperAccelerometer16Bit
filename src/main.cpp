@@ -13,7 +13,7 @@ const int ATTRIB_POSITION = 0;
 const int GRAPH_HISTORY_SIZE = 256;
 
 ///////////////////////////////////////////////////////////////////////////////
-// Globals
+// Types
 
 typedef struct Model {
 	float position;
@@ -22,6 +22,8 @@ typedef struct Model {
 	Model(float p, float v, float a):position(p),velocity(v),acceleration(a) {}
 } Model;
 
+///////////////////////////////////////////////////////////////////////////////
+// Globals
 
 SDL_Surface  *g_Surface;
 SDL_Joystick *g_Joystick;
@@ -30,6 +32,7 @@ int g_Program;
 int g_iProjectionMatrix,
     g_iModelviewMatrix,
     g_iColor;
+
 TransformationMatrix *g_ProjectionMatrix;
 
 Model g_Model(0.0f, 0.0f, 0.0f);
@@ -209,8 +212,11 @@ void Render2DTest()
         {2,3,0}
     };
 
-	// Rotate the square
-	modelviewMatrix->rotateZ(g_Model.acceleration);
+	// Transform the square
+	//modelviewMatrix->rotateZ(g_Model.acceleration);
+	modelviewMatrix->translate(g_Model.acceleration, 0.0f);
+	//modelviewMatrix->scale(1.0f + g_Model.acceleration, 1.0f);
+	//modelviewMatrix->scale(1.0f + g_Model.acceleration);
 
     // Draw the square
     glUseProgram            (g_Program);
