@@ -2,7 +2,7 @@ APPNAME=superthrusterturbo
 PACKAGE=net.spr33.superthrusterturbo
 VERSION=0.1.0
 
-SRC=main.cpp
+SRC=main.cpp TransformationMatrix.cpp
 
 LIBS=-lSDL -lGLESv2 -lpdl
 

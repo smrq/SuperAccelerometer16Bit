@@ -35,6 +35,6 @@ T RingBuffer<T>::push(T value)
 	T overwrittenValue = buffer[cursor];
 	buffer[cursor] = value;
 	return overwrittenValue;
-}
+};
 
 #endif

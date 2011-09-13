@@ -1,6 +1,3 @@
-/**
-    Palm disclaimer
-**/
 #include <cstdio>
 #include <cmath>
 
@@ -8,10 +5,12 @@
 #include "SDL.h"
 #include "PDL.h"
 
-#include "Vector3f.h"
 #include "RingBuffer.h"
+#include "TransformationMatrix.h"
+#include "Vector3f.h"
 
 const int ATTRIB_POSITION = 0;
+const int GRAPH_HISTORY_SIZE = 256;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -27,51 +26,13 @@ typedef struct Model {
 SDL_Surface  *g_Surface;
 SDL_Joystick *g_Joystick;
 
-int   g_Program;
-float g_ProjectionMatrix[4][4];
-int   g_iProjectionMatrix,
-      g_iModelviewMatrix,
-      g_iColor;
+int g_Program;
+int g_iProjectionMatrix,
+    g_iModelviewMatrix,
+    g_iColor;
+TransformationMatrix *g_ProjectionMatrix;
 
 Model g_Model(0.0f, 0.0f, 0.0f);
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Projection/transformation matrix functions
-
-// Standard GL perspective matrix creation
-void MakePerspectiveMatrix(float matrix[4][4], const float fov, const float near, const float far)
-{
-    memset(matrix, 0, sizeof(matrix));
-
-    matrix[0][0] = 1.0f / tanf(fov * 3.1415926535f / 360.0f);
-    matrix[1][1] = matrix[0][0] / ((float)g_Surface->h / g_Surface->w);
-    matrix[2][2] = -(far + near) / (far - near);
-    matrix[2][3] = -1.0f;
-    matrix[3][2] = -2.0f * far * near / (far - near);
-}
-
-void MakeOrthographicMatrix(float matrix[4][4], const float left, const float right, const float top, const float bottom, const float near, const float far)
-{
-    memset(matrix, 0, sizeof(matrix));
-
-	matrix[0][0] = 2.0f / (right - left);
-	matrix[1][1] = 2.0f / (top - bottom);
-	matrix[2][2] = -2.0f / (far - near);
-	matrix[3][0] = -(right + left)/(right - left);
-	matrix[3][1] = -(top + bottom)/(top - bottom);
-	matrix[3][2] = -(far + near)/(far - near);
-	matrix[3][3] = 1.0f;
-}
-
-void MakeIdentityMatrix(float matrix[4][4])
-{
-    memset(matrix, 0, sizeof(matrix));
-	matrix[0][0] = 1.0f;
-	matrix[1][1] = 1.0f;
-	matrix[2][2] = 1.0f;
-	matrix[3][3] = 1.0f;
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization
@@ -182,8 +143,10 @@ bool InitializeGL()
         return false;
 
     // Setup the Projection matrix
-    //MakePerspectiveMatrix(g_ProjectionMatrix, 70.0f, 0.1f, 200.0f);
-	MakeOrthographicMatrix(g_ProjectionMatrix, -2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
+	g_ProjectionMatrix = new TransformationMatrix();
+	
+	//g_ProjectionMatrix->perspectiveMatrix(g_Surface->h, g_Surface->w, 70.0f, 0.1f, 200.0f);
+	g_ProjectionMatrix->orthographicMatrix(-2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
 
     // Basic GL setup
     glClearColor    (0.0, 0.0, 0.0, 1.0);
@@ -230,12 +193,9 @@ bool Initialize()
 
 void Render2DTest()
 {
-    float modelviewMatrix[4][4];
-	MakeIdentityMatrix(modelviewMatrix);
+	TransformationMatrix *modelviewMatrix = new TransformationMatrix();
 
     // Vertex information
-	std::vector<float>
-
     float PtData[][3] = {
         {-1.0f, -1.0f, 0.0f},
         {-1.0f,  1.0f, 0.0f},
@@ -249,10 +209,13 @@ void Render2DTest()
         {2,3,0}
     };
 
+	// Rotate the square
+	modelviewMatrix->rotateZ(g_Model.acceleration);
+
     // Draw the square
     glUseProgram            (g_Program);
-    glUniformMatrix4fv      (g_iProjectionMatrix, 1, false, (const float *)&g_ProjectionMatrix[0][0]);
-    glUniformMatrix4fv      (g_iModelviewMatrix, 1, false, (const float *)&modelviewMatrix[0][0]);
+    glUniformMatrix4fv      (g_iProjectionMatrix, 1, false, g_ProjectionMatrix->getRawMatrix());
+    glUniformMatrix4fv      (g_iModelviewMatrix, 1, false, modelviewMatrix->getRawMatrix());
     glUniform3f             (g_iColor, 0.8f, 0.3f, 0.5f);
 
     glVertexAttribPointer   (ATTRIB_POSITION, 3, GL_FLOAT, GL_FALSE, 0, &PtData[0][0]);
