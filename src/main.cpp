@@ -3,6 +3,7 @@
 
 #include <string>
 #include <fstream>
+#include <stdexcept>
 
 #include <GLES2/gl2.h>
 #include "SDL.h"
@@ -12,18 +13,49 @@
 #include "TransformationMatrix.h"
 #include "Vector3f.h"
 
+///////////////////////////////////////////////////////////////////////////////
+// Constants
+
 const int ATTRIB_POSITION = 0;
 const int GRAPH_HISTORY_SIZE = 256;
+
+std::string VERTEX_SHADER_FILE = "shader.vert";
+std::string FRAGMENT_SHADER_FILE = "shader.frag";
 
 ///////////////////////////////////////////////////////////////////////////////
 // Types
 
-typedef struct Model {
+class FileOpenException : public std::runtime_error {
+	public:
+		FileOpenException() : std::runtime_error("File could not be opened") {}
+		FileOpenException(std::string const& filename) : std::runtime_error("File \"" + filename + "\" could not be opened") {}
+};
+
+class GLSLCompilationException : public std::runtime_error {
+	public:
+		GLSLCompilationException() : std::runtime_error("GLSL compilation error") {}
+		GLSLCompilationException(std::string const& message) : std::runtime_error("GLSL compilation error\n" + message) {}
+		GLSLCompilationException(std::string const& filename, std::string const& message) : std::runtime_error("GLSL compilation error on file \"" + filename + "\"\n" + message) {}
+};
+
+class GLSLLinkingException : public std::runtime_error {
+	public:
+		GLSLLinkingException() : std::runtime_error("GLSL linking error") {}
+		GLSLLinkingException(std::string const& message) : std::runtime_error("GLSL linking error\n" + message) {}
+};
+
+class GLSLValidationException : public std::runtime_error {
+	public:
+		GLSLValidationException() : std::runtime_error("GLSL validation error") {}
+		GLSLValidationException(std::string const& message) : std::runtime_error("GLSL validation error\n" + message) {}
+};
+
+struct Model {
 	float position;
 	float velocity;
 	float acceleration;
 	Model(float p, float v, float a):position(p),velocity(v),acceleration(a) {}
-} Model;
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -49,6 +81,11 @@ std::string LoadTextFile(std::string const& filename)
 
 	if (!filename.empty()) {
 		std::ifstream file(filename.c_str());
+
+		if (!file.is_open()) {
+			throw FileOpenException(filename);
+		}
+
 		text = std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 	}
 
@@ -56,8 +93,9 @@ std::string LoadTextFile(std::string const& filename)
 }
 
 // Simple function to create a shader
-void LoadShader(std::string const& source, int id)
+void LoadShader(std::string const& filename, int id)
 {
+    std::string source = LoadTextFile(filename);
 	const char *glSource = source.c_str();
 
     // Compile the shader code
@@ -68,26 +106,21 @@ void LoadShader(std::string const& source, int id)
     int shaderStatus;
     glGetShaderiv(id, GL_COMPILE_STATUS, &shaderStatus); 
     if (shaderStatus != GL_TRUE) {
-		printf("Error: Failed to compile GLSL program\n");
-        char errorBuffer[1024];
-        glGetShaderInfoLog(id, 1024, NULL, errorBuffer);
-        printf("%s", errorBuffer);
-        exit (-1);
+        char errorMessage[1024];
+        glGetShaderInfoLog(id, 1024, NULL, errorMessage);
+		throw GLSLCompilationException(filename, errorMessage);
     }
 }
 
 // Initialize our shaders
-bool InitializeShader() 
+void InitializeShader() 
 {
-    std::string vertexShaderSource = LoadTextFile("shader.vert");
-    std::string fragmentShaderSource = LoadTextFile("shader.frag");
-
     // Create 2 shaders
     int vertexShader   = glCreateShader(GL_VERTEX_SHADER);
     int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 
-    LoadShader(vertexShaderSource, vertexShader);
-    LoadShader(fragmentShaderSource, fragmentShader);
+    LoadShader(VERTEX_SHADER_FILE, vertexShader);
+    LoadShader(FRAGMENT_SHADER_FILE, fragmentShader);
 
     // Create the program and attach the shaders & attributes
     g_Program = glCreateProgram();
@@ -104,20 +137,18 @@ bool InitializeShader()
     int shaderStatus;
     glGetProgramiv(g_Program, GL_LINK_STATUS, &shaderStatus); 
     if (shaderStatus != GL_TRUE) {
-        printf("Error: Failed to link GLSL program\n");
-        int Len = 1024;
-        char Error[1024];
-        glGetProgramInfoLog(g_Program, 1024, &Len, Error);
-        printf("%s",Error);
-        return false;
+        char errorMessage[1024];
+        glGetProgramInfoLog(g_Program, 1024, NULL, errorMessage);
+		throw GLSLLinkingException(errorMessage);
     }
 
 	// Validate program
     glValidateProgram(g_Program);
     glGetProgramiv(g_Program, GL_VALIDATE_STATUS, &shaderStatus); 
     if (shaderStatus != GL_TRUE) {
-        printf("Error: Failed to validate GLSL program\n");
-        return false;
+        char errorMessage[1024];
+        glGetProgramInfoLog(g_Program, 1024, NULL, errorMessage);
+		throw GLSLValidationException(errorMessage);
     }
 
     // Enable the program
@@ -128,15 +159,12 @@ bool InitializeShader()
     g_iProjectionMatrix = glGetUniformLocation(g_Program, "ProjectionMatrix");
     g_iModelviewMatrix  = glGetUniformLocation(g_Program, "ModelviewMatrix");
     g_iColor            = glGetUniformLocation(g_Program, "Color");
-
-    return true;
 }
 
 // Initialize the OpenGL system
-bool InitializeGL()
+void InitializeGL()
 {
-    if (!InitializeShader())
-        return false;
+    InitializeShader();
 
     // Setup the Projection matrix
 	g_ProjectionMatrix = new TransformationMatrix();
@@ -148,12 +176,10 @@ bool InitializeGL()
     glClearColor    (0.0, 0.0, 0.0, 1.0);
     glEnable        (GL_CULL_FACE);
     glCullFace      (GL_BACK);
-
-    return true;
 }
 
 // Initialize the SDL system
-bool InitializeSDL()
+void InitializeSDL()
 {
     // Initialize the SDL library with the Video subsystem
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE | SDL_INIT_JOYSTICK);
@@ -171,20 +197,13 @@ bool InitializeSDL()
     g_Surface = SDL_SetVideoMode(0, 0, 0, SDL_OPENGL);
 
     g_Joystick = SDL_JoystickOpen(0);
-
-    return true;
 }
 
 // Initialize our program
-bool Initialize()
+void Initialize()
 {
-    if (!InitializeSDL())
-        return false;
-
-    if (!InitializeGL())
-        return false;
-
-    return true;
+    InitializeSDL();
+    InitializeGL();
 }
 
 void Render2DTest()
@@ -306,8 +325,7 @@ void PollInput()
 
 int main(int argc, char** argv)
 {
-	if (!Initialize())
-		return -1;
+	Initialize();
 
     SDL_Event Event;
     bool paused = false;
