@@ -1,5 +1,5 @@
-APPNAME=superthrusterturbo
-PACKAGE=net.spr33.superthrusterturbo
+APPNAME=superaccelerometerturbo
+PACKAGE=net.smrq.superaccelerometerturbo
 VERSION=0.1.0
 
 SRC=main.cpp TransformationMatrix.cpp

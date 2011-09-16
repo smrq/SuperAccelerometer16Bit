@@ -1,12 +1,12 @@
 {
-	"title": "Super Thruster Turbo 16 Bit!",
+	"title": "Super Accelerometer Turbo 16 Bit!",
 	"type": "pdk",
-	"main": "superthrusterturbo",
+	"main": "superaccelerometerturbo",
 	"splashicon": "icon-256.png",
 	"icon": "icon-64.png",
-	"id": "net.spr33.superthrusterturbo",
+	"id": "net.smrq.superaccelerometerturbo",
 	"version": "0.1.0",
-	"vendor": "spr33",
+	"vendor": "smrq",
 	"requiredMemory": 15,
 	"uirevision": 2
 }
