@@ -9,6 +9,8 @@
 #include "SDL.h"
 #include "PDL.h"
 
+#include "Exceptions.h"
+#include "FileIO.h"
 #include "RingBuffer.h"
 #include "TransformationMatrix.h"
 #include "Vector3f.h"
@@ -24,31 +26,6 @@ std::string FRAGMENT_SHADER_FILE = "shader.frag";
 
 ///////////////////////////////////////////////////////////////////////////////
 // Types
-
-class FileOpenException : public std::runtime_error {
-	public:
-		FileOpenException() : std::runtime_error("File could not be opened") {}
-		FileOpenException(std::string const& filename) : std::runtime_error("File \"" + filename + "\" could not be opened") {}
-};
-
-class GLSLCompilationException : public std::runtime_error {
-	public:
-		GLSLCompilationException() : std::runtime_error("GLSL compilation error") {}
-		GLSLCompilationException(std::string const& message) : std::runtime_error("GLSL compilation error\n" + message) {}
-		GLSLCompilationException(std::string const& filename, std::string const& message) : std::runtime_error("GLSL compilation error on file \"" + filename + "\"\n" + message) {}
-};
-
-class GLSLLinkingException : public std::runtime_error {
-	public:
-		GLSLLinkingException() : std::runtime_error("GLSL linking error") {}
-		GLSLLinkingException(std::string const& message) : std::runtime_error("GLSL linking error\n" + message) {}
-};
-
-class GLSLValidationException : public std::runtime_error {
-	public:
-		GLSLValidationException() : std::runtime_error("GLSL validation error") {}
-		GLSLValidationException(std::string const& message) : std::runtime_error("GLSL validation error\n" + message) {}
-};
 
 struct Model {
 	float position;
@@ -75,27 +52,10 @@ Model g_Model(0.0f, 0.0f, 0.0f);
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization
 
-std::string LoadTextFile(std::string const& filename)
-{
-	std::string text;
-
-	if (!filename.empty()) {
-		std::ifstream file(filename.c_str());
-
-		if (!file.is_open()) {
-			throw FileOpenException(filename);
-		}
-
-		text = std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-	}
-
-	return text;
-}
-
 // Simple function to create a shader
 void LoadShader(std::string const& filename, int id)
 {
-    std::string source = LoadTextFile(filename);
+    std::string source = FileIO::loadTextFile(filename);
 	const char *glSource = source.c_str();
 
     // Compile the shader code
