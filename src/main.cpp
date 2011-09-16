@@ -2,6 +2,7 @@
 #include <cmath>
 
 #include <string>
+#include <fstream>
 
 #include <GLES2/gl2.h>
 #include "SDL.h"
@@ -42,6 +43,18 @@ Model g_Model(0.0f, 0.0f, 0.0f);
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization
 
+std::string LoadTextFile(std::string const& filename)
+{
+	std::string text;
+
+	if (!filename.empty()) {
+		std::ifstream file(filename.c_str());
+		text = std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	}
+
+	return text;
+}
+
 // Simple function to create a shader
 void LoadShader(std::string const& source, int id)
 {
@@ -66,26 +79,8 @@ void LoadShader(std::string const& source, int id)
 // Initialize our shaders
 bool InitializeShader() 
 {
-    std::string vertexShaderSource("         \
-        attribute vec3 Position;             \
-                                             \
-        uniform mat4 ProjectionMatrix;       \
-        uniform mat4 ModelviewMatrix;        \
-                                             \
-        void main(void)                      \
-        {                                    \
-            gl_Position = ProjectionMatrix * ModelviewMatrix * vec4(Position, 1.0); \
-        }                                    \
-    ");
-
-    std::string fragmentShaderSource("       \
-        uniform highp vec3 Color;            \
-                                             \
-        void main(void)                      \
-        {                                    \
-            gl_FragColor = vec4(Color, 0.5); \
-        }                                    \
-    ");
+    std::string vertexShaderSource = LoadTextFile("shader.vert");
+    std::string fragmentShaderSource = LoadTextFile("shader.frag");
 
     // Create 2 shaders
     int vertexShader   = glCreateShader(GL_VERTEX_SHADER);

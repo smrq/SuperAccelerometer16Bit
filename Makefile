@@ -31,9 +31,11 @@ vpath %.cpp $(SRCDIR)
 
 ###############################################################################
 
-.PHONY : all build package install uninstall run clean
+.PHONY : all build package install uninstall run clean clean-install
 
 all: build
+
+clean-install: clean install
 
 clean:
 	rm -rf $(BUILDDIR)
@@ -58,7 +60,6 @@ build: $(OUTFILE)
 $(IPKFILE): $(OUTFILE)
 	mkdir -p $(STAGINGDIR)
 	cp $(OUTFILE) $(STAGINGDIR)
-	cp $(SRCDIR)/appinfo.json $(STAGINGDIR)
 	cp $(RESDIR)/* $(STAGINGDIR)
 	echo "filemode.755=$(APPNAME)" > $(STAGINGDIR)/package.properties
 	palm-package $(STAGINGDIR)
