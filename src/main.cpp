@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cmath>
 
+#include <string>
+
 #include <GLES2/gl2.h>
 #include "SDL.h"
 #include "PDL.h"
@@ -41,23 +43,22 @@ Model g_Model(0.0f, 0.0f, 0.0f);
 // Initialization
 
 // Simple function to create a shader
-void LoadShader(char *Code, int ID)
+void LoadShader(std::string const& source, int id)
 {
+	const char *glSource = source.c_str();
+
     // Compile the shader code
-    glShaderSource  (ID, 1, (const char **)&Code, NULL); 
-    glCompileShader (ID);
+    glShaderSource  (id, 1, &glSource, NULL); 
+    glCompileShader (id);
 
-    // Verify that it worked
-    int ShaderStatus;
-    glGetShaderiv(ID, GL_COMPILE_STATUS, &ShaderStatus); 
-
-    // Check the compile status
-    if (ShaderStatus != GL_TRUE) {
+    // Validate compilation
+    int shaderStatus;
+    glGetShaderiv(id, GL_COMPILE_STATUS, &shaderStatus); 
+    if (shaderStatus != GL_TRUE) {
 		printf("Error: Failed to compile GLSL program\n");
-        int Len = 1024;
-        char Error[1024];
-        glGetShaderInfoLog(ID, 1024, &Len, Error);
-        printf("%s", Error);
+        char errorBuffer[1024];
+        glGetShaderInfoLog(id, 1024, NULL, errorBuffer);
+        printf("%s", errorBuffer);
         exit (-1);
     }
 }
@@ -65,36 +66,35 @@ void LoadShader(char *Code, int ID)
 // Initialize our shaders
 bool InitializeShader() 
 {
-    // Very basic ambient+diffusion model
-    const char VertexShader[] = "                   \
-        attribute vec3 Position;                    \
-                                                    \
-        uniform mat4 ProjectionMatrix;              \
-        uniform mat4 ModelviewMatrix;               \
-                                                    \
-        void main(void)                             \
-        {                                           \
+    std::string vertexShaderSource("         \
+        attribute vec3 Position;             \
+                                             \
+        uniform mat4 ProjectionMatrix;       \
+        uniform mat4 ModelviewMatrix;        \
+                                             \
+        void main(void)                      \
+        {                                    \
             gl_Position = ProjectionMatrix * ModelviewMatrix * vec4(Position, 1.0); \
-        }                                           \
-    ";
+        }                                    \
+    ");
 
-    const char FragmentShader[] = "          \
+    std::string fragmentShaderSource("       \
         uniform highp vec3 Color;            \
                                              \
         void main(void)                      \
         {                                    \
             gl_FragColor = vec4(Color, 0.5); \
         }                                    \
-    ";
+    ");
 
-    // Create 2 shader programs
+    // Create 2 shaders
     int vertexShader   = glCreateShader(GL_VERTEX_SHADER);
     int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 
-    LoadShader((char *)VertexShader, vertexShader);
-    LoadShader((char *)FragmentShader, fragmentShader);
+    LoadShader(vertexShaderSource, vertexShader);
+    LoadShader(fragmentShaderSource, fragmentShader);
 
-    // Create the prorgam and attach the shaders & attributes
+    // Create the program and attach the shaders & attributes
     g_Program = glCreateProgram();
 
     glAttachShader(g_Program, vertexShader);
@@ -105,11 +105,10 @@ bool InitializeShader()
     // Link
     glLinkProgram(g_Program);
 
-    // Validate our work thus far
-    int ShaderStatus;
-    glGetProgramiv(g_Program, GL_LINK_STATUS, &ShaderStatus); 
-
-    if (ShaderStatus != GL_TRUE) {
+    // Validate linking
+    int shaderStatus;
+    glGetProgramiv(g_Program, GL_LINK_STATUS, &shaderStatus); 
+    if (shaderStatus != GL_TRUE) {
         printf("Error: Failed to link GLSL program\n");
         int Len = 1024;
         char Error[1024];
@@ -118,11 +117,10 @@ bool InitializeShader()
         return false;
     }
 
+	// Validate program
     glValidateProgram(g_Program);
-
-    glGetProgramiv(g_Program, GL_VALIDATE_STATUS, &ShaderStatus); 
-
-    if (ShaderStatus != GL_TRUE) {
+    glGetProgramiv(g_Program, GL_VALIDATE_STATUS, &shaderStatus); 
+    if (shaderStatus != GL_TRUE) {
         printf("Error: Failed to validate GLSL program\n");
         return false;
     }
