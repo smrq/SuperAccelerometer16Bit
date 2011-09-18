@@ -12,6 +12,20 @@ Shader::Shader(std::string vsFilename, std::string fsFilename)
 	init(vsFilename, fsFilename);
 }
 
+/*
+ * Destructor
+ */
+Shader::~Shader()
+{
+	glDetachShader(shaderId, vertexShader);
+	glDetachShader(shaderId, fragmentShader);
+
+	glDeleteShader(vertexShader);
+	glDeleteShader(fragmentShader);
+
+	glDeleteProgram(shaderId);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Private methods
 
@@ -27,7 +41,7 @@ Shader::Shader(std::string vsFilename, std::string fsFilename)
  *     FileOpenException
  *     GLSLCompilationException
  */
-static void Shader::compileShader(std::string const& filename, int id)
+void Shader::compileShader(std::string const& filename, int id)
 {
     std::string source = FileIO::loadTextFile(filename);
 	const char *glSource = source.c_str();
@@ -76,6 +90,7 @@ void Shader::init(std::string vsFilename, std::string fsFilename)
     glAttachShader(shaderId, vertexShader);
     glAttachShader(shaderId, fragmentShader);
 
+	// Bind vertex attribute locations
     glBindAttribLocation(shaderId, ATTRIB_POSITION, "Position");
 
     // Link the program
@@ -99,12 +114,27 @@ void Shader::init(std::string vsFilename, std::string fsFilename)
 		throw GLSLValidationException(errorMessage);
     }
 
-    // Enable the program
-    glUseProgram(shaderId);
+    // Enable vertex attribute arrays
     glEnableVertexAttribArray(ATTRIB_POSITION);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Public methods
 
+/*
+ * bind
+ * Attaches this shader to OpenGL.
+ */
+void Shader::bind()
+{
+	glUseProgram(shaderId);
+}
 
+/*
+ * unbind
+ * Detaches this shader from OpenGL.
+ */
+void Shader::unbind()
+{
+	glUseProgram(0);
+}

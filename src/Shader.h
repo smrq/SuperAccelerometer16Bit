@@ -14,11 +14,13 @@
 class Shader {
 	public:
 		Shader(std::string vsFilename, std::string fsFilename);
-		~Shader(); // TODO what to destroy
+		~Shader();
 
-		void bind(); // TODO whats this for
-		void unbind(); // TODO whats this for
+		void bind();
+		void unbind();
 		unsigned int id() { return shaderId; }
+
+		static const int ATTRIB_POSITION = 0;
 
 	private:
         unsigned int shaderId;          // The handle for the shader program
@@ -26,7 +28,7 @@ class Shader {
 		unsigned int fragmentShader;    // The handle for the fragment shader
 
 		static void compileShader(std::string const& filename, int id);
-		void init(std::string vsFilename, std::string fsFilename)
-}
+		void init(std::string vsFilename, std::string fsFilename);
+};
 
 #endif

@@ -12,13 +12,13 @@
 #include "Exceptions.h"
 #include "FileIO.h"
 #include "RingBuffer.h"
+#include "Shader.h"
 #include "TransformationMatrix.h"
 #include "Vector3f.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants
 
-const int ATTRIB_POSITION = 0;
 const int GRAPH_HISTORY_SIZE = 256;
 
 std::string VERTEX_SHADER_FILE = "shader.vert";
@@ -38,95 +38,32 @@ struct Model {
 // Globals
 
 SDL_Surface  *g_Surface;
-SDL_Joystick *g_Joystick;
+SDL_Joystick *g_Accelerometer;
 
-int g_Program;
 int g_iProjectionMatrix,
     g_iModelviewMatrix,
     g_iColor;
 
 TransformationMatrix *g_ProjectionMatrix;
+Shader *g_Shader;
 
 Model g_Model(0.0f, 0.0f, 0.0f);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization
 
-// Simple function to create a shader
-void LoadShader(std::string const& filename, int id)
-{
-    std::string source = FileIO::loadTextFile(filename);
-	const char *glSource = source.c_str();
-
-    // Compile the shader code
-    glShaderSource  (id, 1, &glSource, NULL); 
-    glCompileShader (id);
-
-    // Validate compilation
-    int shaderStatus;
-    glGetShaderiv(id, GL_COMPILE_STATUS, &shaderStatus); 
-    if (shaderStatus != GL_TRUE) {
-        char errorMessage[1024];
-        glGetShaderInfoLog(id, 1024, NULL, errorMessage);
-		throw GLSLCompilationException(filename, errorMessage);
-    }
-}
-
-// Initialize our shaders
-void InitializeShader() 
-{
-    // Create 2 shaders
-    int vertexShader   = glCreateShader(GL_VERTEX_SHADER);
-    int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-
-    LoadShader(VERTEX_SHADER_FILE, vertexShader);
-    LoadShader(FRAGMENT_SHADER_FILE, fragmentShader);
-
-    // Create the program and attach the shaders & attributes
-    g_Program = glCreateProgram();
-
-    glAttachShader(g_Program, vertexShader);
-    glAttachShader(g_Program, fragmentShader);
-
-    glBindAttribLocation(g_Program, ATTRIB_POSITION, "Position");
-
-    // Link
-    glLinkProgram(g_Program);
-
-    // Validate linking
-    int shaderStatus;
-    glGetProgramiv(g_Program, GL_LINK_STATUS, &shaderStatus); 
-    if (shaderStatus != GL_TRUE) {
-        char errorMessage[1024];
-        glGetProgramInfoLog(g_Program, 1024, NULL, errorMessage);
-		throw GLSLLinkingException(errorMessage);
-    }
-
-	// Validate program
-    glValidateProgram(g_Program);
-    glGetProgramiv(g_Program, GL_VALIDATE_STATUS, &shaderStatus); 
-    if (shaderStatus != GL_TRUE) {
-        char errorMessage[1024];
-        glGetProgramInfoLog(g_Program, 1024, NULL, errorMessage);
-		throw GLSLValidationException(errorMessage);
-    }
-
-    // Enable the program
-    glUseProgram(g_Program);
-    glEnableVertexAttribArray(ATTRIB_POSITION);
-
-    // Retrieve our uniforms
-    g_iProjectionMatrix = glGetUniformLocation(g_Program, "ProjectionMatrix");
-    g_iModelviewMatrix  = glGetUniformLocation(g_Program, "ModelviewMatrix");
-    g_iColor            = glGetUniformLocation(g_Program, "Color");
-}
-
 // Initialize the OpenGL system
 void InitializeGL()
 {
-    InitializeShader();
+	// Set up the GLSL shader
+	g_Shader = new Shader(VERTEX_SHADER_FILE, FRAGMENT_SHADER_FILE);
+    
+	// Retrieve our uniforms
+    g_iProjectionMatrix = glGetUniformLocation(g_Shader->id(), "ProjectionMatrix");
+    g_iModelviewMatrix  = glGetUniformLocation(g_Shader->id(), "ModelviewMatrix");
+    g_iColor            = glGetUniformLocation(g_Shader->id(), "Color");
 
-    // Setup the Projection matrix
+    // Set up the Projection matrix
 	g_ProjectionMatrix = new TransformationMatrix();
 	
 	//g_ProjectionMatrix->perspectiveMatrix(g_Surface->h, g_Surface->w, 70.0f, 0.1f, 200.0f);
@@ -156,7 +93,8 @@ void InitializeSDL()
     // use zero for width/height to use maximum resolution
     g_Surface = SDL_SetVideoMode(0, 0, 0, SDL_OPENGL);
 
-    g_Joystick = SDL_JoystickOpen(0);
+	// Initialize the accelerometer
+    g_Accelerometer = SDL_JoystickOpen(0);
 }
 
 // Initialize our program
@@ -191,15 +129,18 @@ void Render2DTest()
 	//modelviewMatrix->scale(1.0f + g_Model.acceleration);
 
     // Draw the square
-    glUseProgram            (g_Program);
-    glUniformMatrix4fv      (g_iProjectionMatrix, 1, false, g_ProjectionMatrix->getRawMatrix());
-    glUniformMatrix4fv      (g_iModelviewMatrix, 1, false, modelviewMatrix->getRawMatrix());
-    glUniform3f             (g_iColor, 0.8f, 0.3f, 0.5f);
+    g_Shader->bind();
 
-    glVertexAttribPointer   (ATTRIB_POSITION, 3, GL_FLOAT, GL_FALSE, 0, &PtData[0][0]);
+    glUniformMatrix4fv(g_iProjectionMatrix, 1, false, g_ProjectionMatrix->getRawMatrix());
+    glUniformMatrix4fv(g_iModelviewMatrix, 1, false, modelviewMatrix->getRawMatrix());
+    glUniform3f       (g_iColor, 0.8f, 0.3f, 0.5f);
 
-    glDrawElements          (GL_TRIANGLES, sizeof(FaceData) / sizeof(unsigned short), 
-                             GL_UNSIGNED_SHORT, &FaceData[0][0]);
+    glVertexAttribPointer(Shader::ATTRIB_POSITION, 3, GL_FLOAT, GL_FALSE, 0, &PtData[0][0]);
+
+    glDrawElements       (GL_TRIANGLES, sizeof(FaceData) / sizeof(unsigned short), 
+                          GL_UNSIGNED_SHORT, &FaceData[0][0]);
+
+	g_Shader->unbind();
 }
 
 void Render()
@@ -266,9 +207,9 @@ float GetTrueYAcceleration(Vector3f acceleration)
 void PollInput()
 {
     Vector3f a;
-    a.x = (float) SDL_JoystickGetAxis(g_Joystick, 0) / 32768.0;
-    a.y = (float) SDL_JoystickGetAxis(g_Joystick, 1) / 32768.0;
-    a.z = (float) SDL_JoystickGetAxis(g_Joystick, 2) / 32768.0;
+    a.x = (float) SDL_JoystickGetAxis(g_Accelerometer, 0) / 32768.0;
+    a.y = (float) SDL_JoystickGetAxis(g_Accelerometer, 1) / 32768.0;
+    a.z = (float) SDL_JoystickGetAxis(g_Accelerometer, 2) / 32768.0;
 	float trueAcceleration = GetTrueYAcceleration(a);
 
 	if (fabs(trueAcceleration) > 0.05f) {
