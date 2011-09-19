@@ -2,9 +2,9 @@ APPNAME=superaccelerometerturbo
 PACKAGE=net.smrq.superaccelerometerturbo
 VERSION=0.1.0
 
-SRC=main.cpp Shader.cpp TransformationMatrix.cpp
+SRC=main.cpp Animation.cpp Shader.cpp TransformationMatrix.cpp
 
-LIBS=-lSDL -lGLESv2 -lpdl
+LIBS=-lSDL -lSDL_image -lGLESv2 -lpdl
 
 SRCDIR=src
 RESDIR=res
@@ -60,7 +60,7 @@ build: $(OUTFILE)
 $(IPKFILE): $(OUTFILE)
 	mkdir -p $(STAGINGDIR)
 	cp $(OUTFILE) $(STAGINGDIR)
-	cp $(RESDIR)/* $(STAGINGDIR)
+	cp -r $(RESDIR)/* $(STAGINGDIR)
 	echo "filemode.755=$(APPNAME)" > $(STAGINGDIR)/package.properties
 	palm-package $(STAGINGDIR)
 

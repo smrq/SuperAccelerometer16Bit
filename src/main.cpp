@@ -4,11 +4,13 @@
 #include <string>
 #include <fstream>
 #include <stdexcept>
+#include <vector>
 
 #include <GLES2/gl2.h>
 #include "SDL.h"
 #include "PDL.h"
 
+#include "Animation.h"
 #include "Exceptions.h"
 #include "FileIO.h"
 #include "RingBuffer.h"
@@ -21,17 +23,18 @@
 
 const int GRAPH_HISTORY_SIZE = 256;
 
-std::string VERTEX_SHADER_FILE = "shader.vert";
-std::string FRAGMENT_SHADER_FILE = "shader.frag";
+const std::string VERTEX_SHADER_FILE = "shader.vert";
+const std::string FRAGMENT_SHADER_FILE = "shader.frag";
 
 ///////////////////////////////////////////////////////////////////////////////
 // Types
 
 struct Model {
-	float position;
 	float velocity;
 	float acceleration;
-	Model(float p, float v, float a):position(p),velocity(v),acceleration(a) {}
+	float jerk;
+	Model(float v=0.0f, float a=0.0f, float j=0.0f)
+		:velocity(v),acceleration(a),jerk(j) {}
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -40,14 +43,11 @@ struct Model {
 SDL_Surface  *g_Surface;
 SDL_Joystick *g_Accelerometer;
 
-int g_iProjectionMatrix,
-    g_iModelviewMatrix,
-    g_iColor;
-
 TransformationMatrix *g_ProjectionMatrix;
 Shader *g_Shader;
+Animation *g_Animation;
 
-Model g_Model(0.0f, 0.0f, 0.0f);
+Model g_Model;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization
@@ -58,16 +58,11 @@ void InitializeGL()
 	// Set up the GLSL shader
 	g_Shader = new Shader(VERTEX_SHADER_FILE, FRAGMENT_SHADER_FILE);
     
-	// Retrieve our uniforms
-    g_iProjectionMatrix = glGetUniformLocation(g_Shader->id(), "ProjectionMatrix");
-    g_iModelviewMatrix  = glGetUniformLocation(g_Shader->id(), "ModelviewMatrix");
-    g_iColor            = glGetUniformLocation(g_Shader->id(), "Color");
-
     // Set up the Projection matrix
 	g_ProjectionMatrix = new TransformationMatrix();
 	
 	//g_ProjectionMatrix->perspectiveMatrix(g_Surface->h, g_Surface->w, 70.0f, 0.1f, 200.0f);
-	g_ProjectionMatrix->orthographicMatrix(-2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
+	g_ProjectionMatrix->orthographicMatrix(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
 
     // Basic GL setup
     glClearColor    (0.0, 0.0, 0.0, 1.0);
@@ -97,48 +92,120 @@ void InitializeSDL()
     g_Accelerometer = SDL_JoystickOpen(0);
 }
 
+// Initialize animations
+void InitializeAnimations()
+{
+	std::vector <std::string> frames;
+	frames.push_back("animation1/frame01.jpg");
+	frames.push_back("animation1/frame02.jpg");
+	frames.push_back("animation1/frame03.jpg");
+	frames.push_back("animation1/frame04.jpg");
+	frames.push_back("animation1/frame05.jpg");
+	frames.push_back("animation1/frame06.jpg");
+	frames.push_back("animation1/frame07.jpg");
+	frames.push_back("animation1/frame08.jpg");
+
+	g_Animation = new Animation(frames);
+}
+
 // Initialize our program
 void Initialize()
 {
     InitializeSDL();
     InitializeGL();
+	InitializeAnimations();
 }
 
-void Render2DTest()
+///////////////////////////////////////////////////////////////////////////////
+// Rendering
+
+int GetFrameNumber(float acceleration)
 {
+	int frameCount = g_Animation->frameCount();
+	float normalizationConstant = 0.5f; // determine via calibration?
+	float normalizedAcceleration = acceleration * normalizationConstant;
+
+	int frame = frameCount / 2;
+	frame += (frameCount / 2) * normalizedAcceleration;
+	if (frame < 0)           { frame = 0; }
+	if (frame >= frameCount) { frame = frameCount - 1; }
+
+	return frame;
+}
+
+void RenderImage()
+{	
+	// Get animation frame
+	int frame = GetFrameNumber(g_Model.acceleration);
+
+	// Get model coordinates
+	float vertexCoords[] = {
+		-1.0f, -1.0f, 0.0f,
+		-1.0f,  1.0f, 0.0f,
+		 1.0f, -1.0f, 0.0f,
+		 1.0f,  1.0f, 0.0f
+	};
+
+	// Clip texture to fill screen
+	float textureAspectRatio = g_Animation->aspectRatio(frame);
+	float screenAspectRatio = ((float)g_Surface->h) / ((float)g_Surface->w);
+
+	float wMin, wMax, hMin, hMax;
+	if (textureAspectRatio > screenAspectRatio) {
+		wMin = (1.0f - (screenAspectRatio / textureAspectRatio)) / 2;
+		wMax = (1.0f + (screenAspectRatio / textureAspectRatio)) / 2;
+		hMin = 0.0f;
+		hMax = 1.0f;
+	}
+	else {
+		wMin = 0.0f;
+		wMax = 1.0f;
+		hMin = (1.0f - (textureAspectRatio / screenAspectRatio)) / 2;
+		hMax = (1.0f + (screenAspectRatio / screenAspectRatio)) / 2;
+	}
+
+	// Crop texture border
+	float wSize = g_Animation->frameWCoord(frame);
+	float hSize = g_Animation->frameHCoord(frame);
+	wMin *= wSize;
+	wMax *= wSize;
+	hMin *= hSize;
+	hMax *= hSize;
+
+	// Get texture coordinates
+	float textureCoords[] = {
+		wMax, hMin,
+		wMin, hMin,
+		wMax, hMax,
+		wMin, hMax
+	};
+
+	// Set up modelview matrix
 	TransformationMatrix *modelviewMatrix = new TransformationMatrix();
 
-    // Vertex information
-    float PtData[][3] = {
-        {-1.0f, -1.0f, 0.0f},
-        {-1.0f,  1.0f, 0.0f},
-        { 1.0f,  1.0f, 0.0f},
-        { 1.0f, -1.0f, 0.0f}
-    };
-
-    // Face information
-    unsigned short FaceData[][3] = {
-        {0,1,2},
-        {2,3,0}
-    };
-
-	// Transform the square
-	//modelviewMatrix->rotateZ(g_Model.acceleration);
-	modelviewMatrix->translate(g_Model.acceleration, 0.0f);
-	//modelviewMatrix->scale(1.0f + g_Model.acceleration, 1.0f);
-	//modelviewMatrix->scale(1.0f + g_Model.acceleration);
-
-    // Draw the square
+	// Bind shader
     g_Shader->bind();
 
-    glUniformMatrix4fv(g_iProjectionMatrix, 1, false, g_ProjectionMatrix->getRawMatrix());
-    glUniformMatrix4fv(g_iModelviewMatrix, 1, false, modelviewMatrix->getRawMatrix());
-    glUniform3f       (g_iColor, 0.8f, 0.3f, 0.5f);
+	// Bind texture
+	glActiveTexture(GL_TEXTURE0);
+	g_Animation->bindFrame(frame);
+	
+	// Set up uniforms
+    int iProjectionMatrix = g_Shader->uniform("ProjectionMatrix");
+    int iModelviewMatrix  = g_Shader->uniform("ModelviewMatrix");
+	int iTexture          = g_Shader->uniform("Texture");
+    glUniformMatrix4fv(iProjectionMatrix, 1, false, g_ProjectionMatrix->getRawMatrix());
+    glUniformMatrix4fv(iModelviewMatrix, 1, false, modelviewMatrix->getRawMatrix());
+	glUniform1i(iTexture, 0);
 
-    glVertexAttribPointer(Shader::ATTRIB_POSITION, 3, GL_FLOAT, GL_FALSE, 0, &PtData[0][0]);
+	// Bind coordinates
+    glVertexAttribPointer(Shader::ATTRIB_POSITION, 3, GL_FLOAT, GL_FALSE, 0, vertexCoords);
+	glEnableVertexAttribArray(Shader::ATTRIB_POSITION);
+    glVertexAttribPointer(Shader::ATTRIB_TEXCOORD, 2, GL_FLOAT, GL_FALSE, 0, textureCoords);
+	glEnableVertexAttribArray(Shader::ATTRIB_TEXCOORD);
 
-    glDrawElements       (GL_TRIANGLES, sizeof(FaceData) / sizeof(unsigned short), 
-                          GL_UNSIGNED_SHORT, &FaceData[0][0]);
+	// Draw
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	g_Shader->unbind();
 }
@@ -146,47 +213,13 @@ void Render2DTest()
 void Render()
 {
     // Clear the screen
-    glClear (GL_COLOR_BUFFER_BIT);
-	Render2DTest();
+    glClear(GL_COLOR_BUFFER_BIT);
+	RenderImage();
     SDL_GL_SwapBuffers();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Game logic
-
-void evaluate(float initialX, float initialV, float a, float dx, float dv, float t, float dt, float *resultdx, float *resultdv)
-{
-	float x = initialX + dx * dt;
-	float v = initialV + dv * dt;
-	*resultdx = v;
-	*resultdv = a;
-}
-
-void integrate(float x, float v, float a, float t, float dt, float *resultx, float *resultv)
-{
-	float adx, adv, bdx, bdv, cdx, cdv, ddx, ddv;
-	evaluate(x, v, a, 0.0f, 0.0f, t,           0.0f,    &adx, &adv);
-	evaluate(x, v, a, adx,  adv,  t + dt*0.5f, dt*0.5f, &bdx, &bdv);
-	evaluate(x, v, a, bdx,  bdv,  t + dt*0.5f, dt*0.5f, &cdx, &cdv);
-	evaluate(x, v, a, cdx,  cdv,  t + dt,      dt,      &ddx, &ddv);
-
-	const float dxdt = 1.0f/6.0f * (adx + 2.0f*(bdx + cdx) + ddx);
-	const float dvdt = 1.0f/6.0f * (adv + 2.0f*(bdv + cdv) + ddv);
-
-	*resultx = x + dxdt * dt;
-	*resultv = v + dvdt * dt;
-}
-
-void Update(int t, int dt)
-{
-    integrate(g_Model.position, g_Model.velocity, g_Model.acceleration,
-              0.001f * t, 0.001f * dt,
-              &g_Model.position, &g_Model.velocity);
-	printf("X: %.5f, V: %.5f, A: %.5f\n", g_Model.position, g_Model.velocity, g_Model.acceleration);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Input polling
 
 float GetTrueYAcceleration(Vector3f acceleration)
 {
@@ -204,21 +237,26 @@ float GetTrueYAcceleration(Vector3f acceleration)
         : a2;
 }
 
-void PollInput()
+void UpdateModel(const float dt)
 {
-    Vector3f a;
-    a.x = (float) SDL_JoystickGetAxis(g_Accelerometer, 0) / 32768.0;
-    a.y = (float) SDL_JoystickGetAxis(g_Accelerometer, 1) / 32768.0;
-    a.z = (float) SDL_JoystickGetAxis(g_Accelerometer, 2) / 32768.0;
-	float trueAcceleration = GetTrueYAcceleration(a);
+    Vector3f accelerometerInput;
+    accelerometerInput.x = (float) SDL_JoystickGetAxis(g_Accelerometer, 0) / 32768.0;
+    accelerometerInput.y = (float) SDL_JoystickGetAxis(g_Accelerometer, 1) / 32768.0;
+    accelerometerInput.z = (float) SDL_JoystickGetAxis(g_Accelerometer, 2) / 32768.0;
+	float acceleration = GetTrueYAcceleration(accelerometerInput);
+	
+	g_Model.jerk = (acceleration - g_Model.acceleration) / dt;
+	g_Model.acceleration = acceleration;
+	g_Model.velocity += acceleration * dt;
 
-	if (fabs(trueAcceleration) > 0.05f) {
-		g_Model.acceleration = trueAcceleration;
-	}
-	else
-	{
-		g_Model.acceleration = 0.0f;
-	}
+	//printf("V: %.5f, A: %.5f, J: %.5f\n",
+	//		g_Model.velocity, g_Model.acceleration, g_Model.jerk);
+}
+
+void Update(const int t, const int dt)
+{
+	float dtSec = 0.001f * dt;
+    UpdateModel(dtSec);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -258,11 +296,6 @@ int main(int argc, char** argv)
             accumulator -= dt;
             t += dt;
         }
-
-        /////////////////////////////////////////////////////////////////////////////
-        // Input polling
-
-        PollInput();
 
         /////////////////////////////////////////////////////////////////////////////
         // Event handling

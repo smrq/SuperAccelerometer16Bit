@@ -19,8 +19,12 @@ class Shader {
 		void bind();
 		void unbind();
 		unsigned int id() { return shaderId; }
+		int uniform(const char *name) { return glGetUniformLocation(shaderId, name); }
 
-		static const int ATTRIB_POSITION = 0;
+		enum {
+			ATTRIB_POSITION,
+			ATTRIB_TEXCOORD
+		};
 
 	private:
         unsigned int shaderId;          // The handle for the shader program

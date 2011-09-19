@@ -4,8 +4,8 @@
  * Constructor
  *
  * Arguments
- *     vsFilename: Filename of the vertex shader source file
- *     fsFilename: Filename of the fragment shader source file
+ *     vsFilename: Filename of the vertex shader source file.
+ *     fsFilename: Filename of the fragment shader source file.
  */
 Shader::Shader(std::string vsFilename, std::string fsFilename)
 {
@@ -91,7 +91,8 @@ void Shader::init(std::string vsFilename, std::string fsFilename)
     glAttachShader(shaderId, fragmentShader);
 
 	// Bind vertex attribute locations
-    glBindAttribLocation(shaderId, ATTRIB_POSITION, "Position");
+    glBindAttribLocation(shaderId, ATTRIB_POSITION, "a_Position");
+    glBindAttribLocation(shaderId, ATTRIB_TEXCOORD, "a_TexCoord");
 
     // Link the program
     glLinkProgram(shaderId);
@@ -116,6 +117,7 @@ void Shader::init(std::string vsFilename, std::string fsFilename)
 
     // Enable vertex attribute arrays
     glEnableVertexAttribArray(ATTRIB_POSITION);
+    glEnableVertexAttribArray(ATTRIB_TEXCOORD);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
