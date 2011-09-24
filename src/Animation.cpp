@@ -1,11 +1,8 @@
 #include "Animation.h"
 
-/*
- * Constructor
- *
- * Arguments
- *     frameFilenames: A list of filenames for textures corresponding to each frame of animation.
- */
+///////////////////////////////////////////////////////////////////////////////
+// Public methods
+
 Animation::Animation(std::vector<std::string> frameFilenames)
 {
 	count = frameFilenames.size();
@@ -27,9 +24,6 @@ Animation::Animation(std::vector<std::string> frameFilenames)
 	}
 }
 
-/*
- * Destructor
- */
 Animation::~Animation()
 {
 	glDeleteTextures(count, textures);
@@ -39,16 +33,6 @@ Animation::~Animation()
 	delete aspectRatios;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// Public methods
-
-/*
- * bindFrame
- * Binds the given animation frame.
- *
- * Arguments
- *     n: The index of the animation frame to bind.
- */
 void Animation::bindFrame(int n)
 {
 	glBindTexture(GL_TEXTURE_2D, textures[n]);
@@ -85,6 +69,18 @@ void Animation::loadTexture(std::string filename, unsigned int texture, float &w
 	SDL_FreeSurface(surface);
 }
 
+/*
+ * resizeSurface
+ * Generates a new SDL_Surface with the pixel data of a source surface, resized
+ * (not scaled) to the smallest containing power of 2 in both dimensions.
+ *
+ * The caller is responsible for calling SDL_FreeSurface() on the result.
+ *
+ * Arguments
+ *     surface: The source SDL_Surface
+ * Returns
+ *     A newly allocated resized SDL_Surface
+ */
 SDL_Surface *Animation::resizeSurface(SDL_Surface *surface)
 {
 	// Calculate smallest power-of-2 dimensions that contain the surface

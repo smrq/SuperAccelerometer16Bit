@@ -11,18 +11,37 @@
 #include "Exceptions.h"
 #include "FileIO.h"
 
+/*
+ * Shader
+ * Represents a GLSL shader program.
+ */
 class Shader {
 	public:
-		Shader(std::string vsFilename, std::string fsFilename);
+		// Constructor
+		// Arguments
+		//		vsFilename: Filename for a GLSL vertex shader
+		//		fsFilename: Filename for a GLSL fragment shader
+		Shader(std::string vsFilename, std::string fsFilename) { init(vsFilename, fsFilename); }
+
+		// Destructor
 		~Shader();
 
-		void bind();
-		void unbind();
+		// Binds this shader to the GL context.
+		void bind() { glUseProgram(shaderId); }
+
+		// Unbinds this shader from the GL context.
+		void unbind() { glUseProgram(0); }
+
+		// Returns the handle for the shader program.
 		unsigned int id() { return shaderId; }
+
+		// Returns the handle for a shader uniform
 		int uniform(const char *name) { return glGetUniformLocation(shaderId, name); }
 
 		enum {
+			// Handle for the position attribute
 			ATTRIB_POSITION,
+			// Handle for the texture coordinate attribute
 			ATTRIB_TEXCOORD
 		};
 

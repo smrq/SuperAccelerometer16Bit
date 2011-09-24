@@ -1,20 +1,8 @@
 #include "Shader.h"
 
-/*
- * Constructor
- *
- * Arguments
- *     vsFilename: Filename of the vertex shader source file.
- *     fsFilename: Filename of the fragment shader source file.
- */
-Shader::Shader(std::string vsFilename, std::string fsFilename)
-{
-	init(vsFilename, fsFilename);
-}
+///////////////////////////////////////////////////////////////////////////////
+// Public methods
 
-/*
- * Destructor
- */
 Shader::~Shader()
 {
 	glDetachShader(shaderId, vertexShader);
@@ -118,25 +106,4 @@ void Shader::init(std::string vsFilename, std::string fsFilename)
     // Enable vertex attribute arrays
     glEnableVertexAttribArray(ATTRIB_POSITION);
     glEnableVertexAttribArray(ATTRIB_TEXCOORD);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Public methods
-
-/*
- * bind
- * Attaches this shader to OpenGL.
- */
-void Shader::bind()
-{
-	glUseProgram(shaderId);
-}
-
-/*
- * unbind
- * Detaches this shader from OpenGL.
- */
-void Shader::unbind()
-{
-	glUseProgram(0);
 }

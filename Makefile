@@ -2,7 +2,7 @@ APPNAME=superaccelerometerturbo
 PACKAGE=net.smrq.superaccelerometerturbo
 VERSION=0.1.0
 
-SRC=main.cpp Animation.cpp Shader.cpp TransformationMatrix.cpp
+SRC=main.cpp Accelerometer.cpp Animation.cpp Model.cpp Shader.cpp TransformationMatrix.cpp
 
 LIBS=-lSDL -lSDL_image -lGLESv2 -lpdl
 

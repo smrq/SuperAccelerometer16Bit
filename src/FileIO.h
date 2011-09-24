@@ -2,15 +2,14 @@
 #define __FILEIO_H__
 
 /*
- * loadTextFile
- * Loads a text file into a string.
- *
- * Arguments
- *     filename: Filename of the file to load.
+ * FileIO
+ * Utility methods for handling file input/output.
  */
-
 class FileIO {
 	public:
+		// Loads a text file into a string.
+		// Arguments
+		//		filename: Filename of the file to load.
 		static std::string loadTextFile(std::string const& filename)
 		{
 			std::string text;

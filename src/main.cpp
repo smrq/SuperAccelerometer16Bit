@@ -10,10 +10,11 @@
 #include "SDL.h"
 #include "PDL.h"
 
+#include "Accelerometer.h"
 #include "Animation.h"
 #include "Exceptions.h"
 #include "FileIO.h"
-#include "RingBuffer.h"
+#include "Model.h"
 #include "Shader.h"
 #include "TransformationMatrix.h"
 #include "Vector3f.h"
@@ -21,33 +22,22 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Constants
 
-const int GRAPH_HISTORY_SIZE = 256;
-
 const std::string VERTEX_SHADER_FILE = "shader.vert";
 const std::string FRAGMENT_SHADER_FILE = "shader.frag";
 
-///////////////////////////////////////////////////////////////////////////////
-// Types
-
-struct Model {
-	float velocity;
-	float acceleration;
-	float jerk;
-	Model(float v=0.0f, float a=0.0f, float j=0.0f)
-		:velocity(v),acceleration(a),jerk(j) {}
-};
+const float DEFAULT_SENSITIVITY = 0.75f;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
 
-SDL_Surface  *g_Surface;
-SDL_Joystick *g_Accelerometer;
+SDL_Surface  *g_ScreenSurface;
 
 TransformationMatrix *g_ProjectionMatrix;
 Shader *g_Shader;
 Animation *g_Animation;
 
-Model g_Model;
+Accelerometer *g_Accelerometer;
+Model *g_Model;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization
@@ -61,13 +51,13 @@ void InitializeGL()
     // Set up the Projection matrix
 	g_ProjectionMatrix = new TransformationMatrix();
 	
-	//g_ProjectionMatrix->perspectiveMatrix(g_Surface->h, g_Surface->w, 70.0f, 0.1f, 200.0f);
+	//g_ProjectionMatrix->perspectiveMatrix(g_ScreenSurface->h, g_ScreenSurface->w, 70.0f, 0.1f, 200.0f);
 	g_ProjectionMatrix->orthographicMatrix(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
 
     // Basic GL setup
-    glClearColor    (0.0, 0.0, 0.0, 1.0);
-    glEnable        (GL_CULL_FACE);
-    glCullFace      (GL_BACK);
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glEnable    (GL_CULL_FACE);
+    glCullFace  (GL_BACK);
 }
 
 // Initialize the SDL system
@@ -86,10 +76,16 @@ void InitializeSDL()
 
     // Set the video mode to full screen with OpenGL-ES support
     // use zero for width/height to use maximum resolution
-    g_Surface = SDL_SetVideoMode(0, 0, 0, SDL_OPENGL);
+    g_ScreenSurface = SDL_SetVideoMode(0, 0, 0, SDL_OPENGL);
 
 	// Initialize the accelerometer
-    g_Accelerometer = SDL_JoystickOpen(0);
+	g_Accelerometer = new Accelerometer();
+}
+
+// Initialize model
+void InitializeModel()
+{
+	g_Model = new Model(g_Accelerometer, DEFAULT_SENSITIVITY);
 }
 
 // Initialize animations
@@ -104,7 +100,6 @@ void InitializeAnimations()
 	frames.push_back("animation1/frame06.jpg");
 	frames.push_back("animation1/frame07.jpg");
 	frames.push_back("animation1/frame08.jpg");
-
 	g_Animation = new Animation(frames);
 }
 
@@ -113,6 +108,7 @@ void Initialize()
 {
     InitializeSDL();
     InitializeGL();
+	InitializeModel();
 	InitializeAnimations();
 }
 
@@ -122,11 +118,9 @@ void Initialize()
 int GetFrameNumber(float acceleration)
 {
 	int frameCount = g_Animation->frameCount();
-	float normalizationConstant = 0.5f; // determine via calibration?
-	float normalizedAcceleration = acceleration * normalizationConstant;
 
 	int frame = frameCount / 2;
-	frame += (frameCount / 2) * normalizedAcceleration;
+	frame += (frameCount / 2) * acceleration;
 	if (frame < 0)           { frame = 0; }
 	if (frame >= frameCount) { frame = frameCount - 1; }
 
@@ -136,7 +130,7 @@ int GetFrameNumber(float acceleration)
 void RenderImage()
 {	
 	// Get animation frame
-	int frame = GetFrameNumber(g_Model.acceleration);
+	int frame = GetFrameNumber(g_Model->acceleration());
 
 	// Get model coordinates
 	float vertexCoords[] = {
@@ -148,7 +142,7 @@ void RenderImage()
 
 	// Clip texture to fill screen
 	float textureAspectRatio = g_Animation->aspectRatio(frame);
-	float screenAspectRatio = ((float)g_Surface->h) / ((float)g_Surface->w);
+	float screenAspectRatio = ((float)g_ScreenSurface->h) / ((float)g_ScreenSurface->w);
 
 	float wMin, wMax, hMin, hMax;
 	if (textureAspectRatio > screenAspectRatio) {
@@ -221,42 +215,9 @@ void Render()
 ///////////////////////////////////////////////////////////////////////////////
 // Game logic
 
-float GetTrueYAcceleration(Vector3f acceleration)
-{
-	const float g = 1.0f;
-	float mag = acceleration.magnitude();
-	// gy^2 should never be negative obviously, but it might be barely
-	// negative due to floating point error for very low true acceleration
-	float gy = sqrt( fabs(acceleration.y * acceleration.y + g * g - mag * mag) );
-    float a1 = acceleration.y + gy;
-	float a2 = acceleration.y - gy;
-
-	// Return a1 or a2, whichever is closer to 0
-	return (fabs(a1) < fabs(a2))
-        ? a1
-        : a2;
-}
-
-void UpdateModel(const float dt)
-{
-    Vector3f accelerometerInput;
-    accelerometerInput.x = (float) SDL_JoystickGetAxis(g_Accelerometer, 0) / 32768.0;
-    accelerometerInput.y = (float) SDL_JoystickGetAxis(g_Accelerometer, 1) / 32768.0;
-    accelerometerInput.z = (float) SDL_JoystickGetAxis(g_Accelerometer, 2) / 32768.0;
-	float acceleration = GetTrueYAcceleration(accelerometerInput);
-	
-	g_Model.jerk = (acceleration - g_Model.acceleration) / dt;
-	g_Model.acceleration = acceleration;
-	g_Model.velocity += acceleration * dt;
-
-	//printf("V: %.5f, A: %.5f, J: %.5f\n",
-	//		g_Model.velocity, g_Model.acceleration, g_Model.jerk);
-}
-
 void Update(const int t, const int dt)
 {
-	float dtSec = 0.001f * dt;
-    UpdateModel(dtSec);
+	g_Model->tick(dt);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
