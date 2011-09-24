@@ -16,7 +16,7 @@ class Model {
 		// Arguments
 		//		accelerometer: An Accelerometer instance
 		//		sensitivity:   A constant multiplier for accelerometer data
-		Model(Accelerometer *accelerometer, float sensitivity = 1.0f);
+		Model(Accelerometer *accelerometer, float sensitivity = 1.0f, float minX = 0.0f, float maxX = 1.0f);
 
 		// Returns the current position
 		float position() { return this->x; }
@@ -27,21 +27,16 @@ class Model {
 		// Returns the current acceleration
 		float acceleration() { return this->a; }
 
-		// Returns the current jerk (derivative of acceleration)
-		float jerk() { return this->j; }
-
 		// Updates the model state given a change in time.
 		void tick(const int dt);
 
 	private:
 		Accelerometer *accelerometer;
 		float sensitivity;
-		float x;
-		float v;
-		float a;
-		float j;
+		float x, v, a;
+		float minX, maxX;
 
-		static float getTrueYAcceleration(Vector3f acceleration);
+		void calculatePhysics(float acceleration, float dt);
 };
 
 #endif

@@ -25,7 +25,7 @@
 const std::string VERTEX_SHADER_FILE = "shader.vert";
 const std::string FRAGMENT_SHADER_FILE = "shader.frag";
 
-const float DEFAULT_SENSITIVITY = 0.75f;
+const float DEFAULT_SENSITIVITY = 200.0f;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -115,22 +115,20 @@ void Initialize()
 ///////////////////////////////////////////////////////////////////////////////
 // Rendering
 
-int GetFrameNumber(float acceleration)
+int GetFrameNumber(float x)
 {
+	// x = 0..1
 	int frameCount = g_Animation->frameCount();
-
-	int frame = frameCount / 2;
-	frame += (frameCount / 2) * acceleration;
+	int frame = x * frameCount;
 	if (frame < 0)           { frame = 0; }
 	if (frame >= frameCount) { frame = frameCount - 1; }
-
 	return frame;
 }
 
 void RenderImage()
 {	
 	// Get animation frame
-	int frame = GetFrameNumber(g_Model->acceleration());
+	int frame = GetFrameNumber(g_Model->position());
 
 	// Get model coordinates
 	float vertexCoords[] = {

@@ -3,10 +3,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Public methods
 
-Model::Model(Accelerometer *accelerometer, float sensitivity)
+Model::Model(Accelerometer *accelerometer, float sensitivity, float minX, float maxX)
 {
 	this->accelerometer = accelerometer;
 	this->sensitivity = sensitivity;
+	this->minX = minX;
+	this->maxX = maxX;
 	this->x = 0.0f;
 	this->v = 0.0f;
 	this->a = 0.0f;
@@ -14,42 +16,38 @@ Model::Model(Accelerometer *accelerometer, float sensitivity)
 
 void Model::tick(const int dt)
 {
-	const float dtSec = 0.001f * dt;
 	float acceleration = accelerometer->getSingleAxisYAcceleration() * sensitivity;
+	calculatePhysics(acceleration, 0.001f * dt);
 	
-	this->j = (acceleration - this->a) / dtSec;
-	this->a = acceleration;
-	this->v += acceleration * dtSec;
-	// this->x = ???
+	// Limit position to bounds
+	// If the model hits the bounds, set v and a to zero
+	if (this->x < minX) {
+		this->x = minX;
+		this->v = 0.0f;
+		this->a = 0.0f;		
+	}
 
-	printf("X: %.5f, V: %.5f, A: %.5f, J: %.5f\n",
-			this->x, this->v, this->a, this->j);
+	if (this->x > maxX) {
+		this->x = maxX;
+		this->v = 0.0f;
+		this->a = 0.0f;		
+	}
+
+	printf("X: %.5f, V: %.5f, A: %.5f\n",
+			this->x, this->v, this->a);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Private methods
 
-/*
- * getTrueYAcceleration
- * Calculates single-axis Y acceleration, assuming G=1.0 and no acceleration on other axes.
- * 
- * Arguments
- *		acceleration: The source 3-axis acceleration vector
- * Returns
- *		
- */
-float Model::getTrueYAcceleration(Vector3f acceleration)
+void Model::calculatePhysics(float newA, float dt)
 {
-	const float g = 1.0f;
-	float mag = acceleration.magnitude();
-	// gy^2 should never be negative obviously, but it might be barely
-	// negative due to floating point error for very low true acceleration
-	float gy = sqrt( fabs(acceleration.y * acceleration.y + g * g - mag * mag) );
-    float a1 = acceleration.y + gy;
-	float a2 = acceleration.y - gy;
+	// v' = v + a*dt
+	float newV = this->v + this->a*dt;
+	// x' = x + v*dt + 1/2 a*dt^2
+	float newX = this->x + this->v*dt + 0.5f*this->a*dt*dt;
 
-	// Return a1 or a2, whichever is closer to 0
-	return (fabs(a1) < fabs(a2))
-        ? a1
-        : a2;
+	this->a = newA;
+	this->v = newV;
+	this->x = newX;
 }
