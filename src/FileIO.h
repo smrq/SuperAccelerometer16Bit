@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 
+#include "json/reader.h"
+#include "json/value.h"
+
 /*
  * FileIO
  * Utility methods for handling file input/output.
@@ -42,6 +45,23 @@ class FileIO {
 			}
 
 			return text;
+		}
+
+		// Loads and parses a JSON file.
+		// Arguments
+		//		filename: Filename of the file to load.
+		static Json::Value loadJSON(std::string const& filename) {
+			std::ifstream file(filename.c_str());
+			
+			Json::Reader reader;
+			Json::Value root;
+			bool success = reader.parse(file, root);
+			if (!success) {
+				// Fucking library function misspellings
+				throw JsonParseException(reader.getFormatedErrorMessages());
+			}
+
+			return root;
 		}
 };
 

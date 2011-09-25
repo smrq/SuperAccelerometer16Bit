@@ -4,16 +4,6 @@
 #include <stdexcept>
 
 /*
- * FileOpenException
- * Thrown when a file cannot be opened.
- */
-class FileOpenException : public std::runtime_error {
-	public:
-		FileOpenException() : std::runtime_error("File could not be opened") {}
-		FileOpenException(std::string const& filename) : std::runtime_error("File \"" + filename + "\" could not be opened") {}
-};
-
-/*
  * GLSLCompilationException
  * Thrown when compilation of a GLSL shader fails.
  */
@@ -42,6 +32,16 @@ class GLSLValidationException : public std::runtime_error {
 	public:
 		GLSLValidationException() : std::runtime_error("GLSL validation error") {}
 		GLSLValidationException(std::string const& message) : std::runtime_error("GLSL validation error\n" + message) {}
+};
+
+/*
+ * JsonParseException
+ * Thrown when parsing of a JSON file fails.
+ */
+class JsonParseException : public std::runtime_error {
+	public:
+		JsonParseException() : std::runtime_error("JSON parsing error") {}
+		JsonParseException(std::string const& message) : std::runtime_error("JSON parsing error\n" + message) {}
 };
 
 #endif

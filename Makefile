@@ -2,30 +2,27 @@ APPNAME=superaccelerometerturbo
 PACKAGE=net.smrq.superaccelerometerturbo
 VERSION=0.1.0
 
-SRC=main.cpp Accelerometer.cpp Animation.cpp Model.cpp Shader.cpp TransformationMatrix.cpp
-
-LIBS=-lSDL -lSDL_image -lGLESv2 -lpdl
-
 SRCDIR=src
 RESDIR=res
+LIBDIR=lib
 BUILDDIR=build
 EXECDIR=$(BUILDDIR)/exec
 STAGINGDIR=$(BUILDDIR)/$(APPNAME)
+
+LIBS=-lSDL -lSDL_image -lGLESv2 -lpdl
+SRC=$(SRCDIR)/*.cpp $(LIBDIR)/jsoncpp-0.5.0/src/*.cpp
 
 OUTFILE=$(EXECDIR)/$(APPNAME)
 IPKFILE=$(PACKAGE)_$(VERSION)_all.ipk
 
 PALMPDK=/opt/PalmPDK
-INCLUDEDIR=$(PALMPDK)/include
-LIBDIR=$(PALMPDK)/device/lib
 SYSROOT=$(PALMPDK)/arm-gcc/sysroot
 
-PATH:=$(PATH):$(PALMPDK)/arm-gcc/bin
-CC=arm-none-linux-gnueabi-gcc
+CC=$(PALMPDK)/arm-gcc/bin/arm-none-linux-gnueabi-gcc
 
 DEVICEOPTS=-mcpu=arm1136jf-s -mfpu=vfp -mfloat-abi=softfp
-CPPFLAGS=-I$(INCLUDEDIR) -I$(INCLUDEDIR)/SDL --sysroot=$(SYSROOT)
-LDFLAGS=-L$(LIBDIR) -Wl,--allow-shlib-undefined
+CPPFLAGS=-I$(PALMPDK)/include -I$(PALMPDK)/include/SDL -I$(LIBDIR)/jsoncpp-0.5.0/include --sysroot=$(SYSROOT)
+LDFLAGS=-L$(PALMPDK)/device/lib -Wl,--allow-shlib-undefined
 
 vpath %.cpp $(SRCDIR)
 

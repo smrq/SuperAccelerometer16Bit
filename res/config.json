@@ -1,0 +1,18 @@
+// Configuration options
+{
+	"vertexShader": "shader.vert",
+	"fragmentShader": "shader.frag",
+
+	"animation": [
+		"animation2/frame08.jpg",
+		"animation2/frame07.jpg",
+		"animation2/frame06.jpg",
+		"animation2/frame05.jpg",
+		"animation2/frame04.jpg",
+		"animation2/frame03.jpg",
+		"animation2/frame02.jpg",
+		"animation2/frame01.jpg"
+	],
+
+	"sensitivity": 50
+}

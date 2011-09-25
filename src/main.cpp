@@ -7,6 +7,8 @@
 #include "SDL.h"
 #include "PDL.h"
 
+#include "json/value.h"
+
 #include "Accelerometer.h"
 #include "Animation.h"
 #include "Exceptions.h"
@@ -19,12 +21,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Constants
 
-const std::string VERTEX_SHADER_FILE = "shader.vert";
-const std::string FRAGMENT_SHADER_FILE = "shader.frag";
-
-const std::string ANIMATION_CONFIG_FILE = "animation.config";
-
-const float DEFAULT_SENSITIVITY = 200.0f;
+const std::string CONFIG_FILE = "config.json";
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -40,24 +37,6 @@ Model *g_Model;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization
-
-// Initialize the OpenGL system
-void InitializeGL()
-{
-	// Set up the GLSL shader
-	g_Shader = new Shader(VERTEX_SHADER_FILE, FRAGMENT_SHADER_FILE);
-    
-    // Set up the Projection matrix
-	g_ProjectionMatrix = new TransformationMatrix();
-	
-	//g_ProjectionMatrix->perspectiveMatrix(g_ScreenSurface->h, g_ScreenSurface->w, 70.0f, 0.1f, 200.0f);
-	g_ProjectionMatrix->orthographicMatrix(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
-
-    // Basic GL setup
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glEnable    (GL_CULL_FACE);
-    glCullFace  (GL_BACK);
-}
 
 // Initialize the SDL system
 void InitializeSDL()
@@ -81,26 +60,56 @@ void InitializeSDL()
 	g_Accelerometer = new Accelerometer();
 }
 
-// Initialize model
-void InitializeModel()
+// Initialize the OpenGL system
+void InitializeGL(std::string vertexShaderFile, std::string fragmentShaderFile)
 {
-	g_Model = new Model(g_Accelerometer, DEFAULT_SENSITIVITY);
+	// Set up the GLSL shader
+	g_Shader = new Shader(vertexShaderFile, fragmentShaderFile);
+    
+    // Set up the Projection matrix
+	g_ProjectionMatrix = new TransformationMatrix();
+	
+	//g_ProjectionMatrix->perspectiveMatrix(g_ScreenSurface->h, g_ScreenSurface->w, 70.0f, 0.1f, 200.0f);
+	g_ProjectionMatrix->orthographicMatrix(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
+
+    // Basic GL setup
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glEnable    (GL_CULL_FACE);
+    glCullFace  (GL_BACK);
+}
+
+// Initialize model
+void InitializeModel(float sensitivity)
+{
+	g_Model = new Model(g_Accelerometer, sensitivity);
 }
 
 // Initialize animations
-void InitializeAnimations()
+void InitializeAnimations(std::vector<std::string> frames)
 {
-	std::vector <std::string> frames = FileIO::loadLinesFromFile(ANIMATION_CONFIG_FILE);
 	g_Animation = new Animation(frames);
 }
 
 // Initialize our program
 void Initialize()
 {
+	Json::Value config = FileIO::loadJSON(CONFIG_FILE);
+
     InitializeSDL();
-    InitializeGL();
-	InitializeModel();
-	InitializeAnimations();
+
+	std::string vertexShaderFile   = config["vertexShader"].asString();
+	std::string fragmentShaderFile = config["fragmentShader"].asString();
+    InitializeGL(vertexShaderFile, fragmentShaderFile);
+
+	float sensitivity = config["sensitivity"].asDouble();
+	InitializeModel(sensitivity);
+
+	Json::Value animation = config["animation"];
+	std::vector<std::string> frames;
+	for (int index = 0; index < animation.size(); ++index) {
+		frames.push_back(animation[index].asString());
+	}
+	InitializeAnimations(frames);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -220,7 +229,7 @@ int main(int argc, char** argv)
     bool paused = false;
 
 	// Timestep variables
-	const unsigned int dt = 33; // Update physics at ~30fps
+	const unsigned int dt = 16; // Update physics at ~60fps
 	const unsigned int maxFrameTime = 250; // Slow down physics simulation if going slower than 4fps
 	unsigned int currentTime = SDL_GetTicks(),
 				 newTime = 0,
