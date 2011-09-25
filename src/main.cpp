@@ -1,9 +1,6 @@
-#include <cstdio>
-#include <cmath>
-
-#include <string>
 #include <fstream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <GLES2/gl2.h>
@@ -24,6 +21,8 @@
 
 const std::string VERTEX_SHADER_FILE = "shader.vert";
 const std::string FRAGMENT_SHADER_FILE = "shader.frag";
+
+const std::string ANIMATION_CONFIG_FILE = "animation.config";
 
 const float DEFAULT_SENSITIVITY = 200.0f;
 
@@ -91,15 +90,7 @@ void InitializeModel()
 // Initialize animations
 void InitializeAnimations()
 {
-	std::vector <std::string> frames;
-	frames.push_back("animation1/frame01.jpg");
-	frames.push_back("animation1/frame02.jpg");
-	frames.push_back("animation1/frame03.jpg");
-	frames.push_back("animation1/frame04.jpg");
-	frames.push_back("animation1/frame05.jpg");
-	frames.push_back("animation1/frame06.jpg");
-	frames.push_back("animation1/frame07.jpg");
-	frames.push_back("animation1/frame08.jpg");
+	std::vector <std::string> frames = FileIO::loadLinesFromFile(ANIMATION_CONFIG_FILE);
 	g_Animation = new Animation(frames);
 }
 

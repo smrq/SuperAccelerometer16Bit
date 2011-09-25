@@ -1,12 +1,11 @@
 #ifndef __SHADER_H__
 #define __SHADER_H__
 
-#include <iostream>
 #include <fstream>
 #include <stdexcept>
+
 #include <GLES2/gl2.h>
 #include "SDL.h"
-#include "PDL.h"
 
 #include "Exceptions.h"
 #include "FileIO.h"

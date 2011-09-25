@@ -1,7 +1,6 @@
 #ifndef __TRANSFORMATIONMATRIX_H__
 #define __TRANSFORMATIONMATRIX_H__
 
-#include <cstdio>
 #include <cmath>
 
 #include "PDL.h"

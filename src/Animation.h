@@ -1,15 +1,12 @@
 #ifndef __ANIMATION_H__
 #define __ANIMATION_H__
 
-#include <cstdio>
-
 #include <string>
 #include <vector>
 
 #include <GLES2/gl2.h>
 #include "SDL.h"
 #include "SDL_image.h"
-#include "PDL.h"
 
 /*
  * Animation
